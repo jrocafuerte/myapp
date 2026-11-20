@@ -1,0 +1,31 @@
+{
+  "name": "@bancoplus/bff",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BFF serverless de Banco Plus: AWS CDK + API Gateway (HTTP API) + Lambda (Node.js 22) + Cognito + DynamoDB.",
+  "scripts": {
+    "dev": "tsx src/local/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts",
+    "synth": "cdk synth",
+    "diff": "cdk diff",
+    "deploy": "cdk deploy"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "3.1163.0",
+    "@aws-sdk/client-dynamodb": "3.1163.0",
+    "@aws-sdk/lib-dynamodb": "3.1163.0",
+    "jose": "6.2.15",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "8.10.164",
+    "@types/node": "22.20.5",
+    "aws-cdk": "2.1148.0",
+    "aws-cdk-lib": "2.275.0",
+    "constructs": "10.8.1",
+    "esbuild": "0.28.2",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3"
+  }
+}

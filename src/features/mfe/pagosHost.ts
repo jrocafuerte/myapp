@@ -4,7 +4,7 @@
  * con la misma lógica de negocio que usan las pantallas nativas.
  */
 import type { HostContext, Operation, Receipt, ThemeSnapshot } from '../../../shared/pagos-mfe/protocol';
-import * as L from '../../store/logic';
+import { applyCommand, cmd, type Command } from '../../store/commands';
 import type { BankState } from '../../store/types';
 
 export function buildContext(s: BankState, theme: ThemeSnapshot): HostContext {
@@ -23,23 +23,32 @@ export function buildContext(s: BankState, theme: ThemeSnapshot): HostContext {
   };
 }
 
-/** Ejecuta una operación. Lanza BankError con un mensaje para el usuario si no es válida. */
-export function execute(s: BankState, op: Operation): { state: BankState; receipt?: Receipt } {
+/** Traduce una operación del micro frontend a un comando del banco (lo ejecuta el gateway: local o BFF). */
+export function toCommand(op: Operation): Command {
   switch (op.name) {
-    case 'payService': {
-      const srv = s.services.find((x) => x.id === op.serviceId);
-      const state = L.payService(s, op.serviceId, op.accountId);
-      const desc = `Pago ${srv?.type} - ${srv?.company}`;
-      const before = new Set(s.transactions.map((t) => t.id));
-      const tx = state.transactions.find((t) => t.description === desc && !before.has(t.id));
-      const acc = state.accounts.find((a) => a.id === op.accountId)!;
-      return { state, receipt: tx && { reference: tx.reference, description: tx.description, amount: -tx.amount, currency: acc.currency, date: tx.date, accountAlias: acc.alias } };
-    }
-    case 'addService': return { state: L.addService(s, op) };
-    case 'removeService': return { state: L.removeService(s, op.serviceId) };
-    case 'setAutoDebit': return { state: L.setAutoDebit(s, op.serviceId, op.on, op.accountId) };
-    case 'setReminder': return { state: L.setReminder(s, op.serviceId, op.on) };
+    case 'payService': return cmd.payService(op.serviceId, op.accountId);
+    case 'addService': return cmd.addService({ company: op.company, type: op.type, customerNumber: op.customerNumber });
+    case 'removeService': return cmd.removeService(op.serviceId);
+    case 'setAutoDebit': return cmd.setAutoDebit(op.serviceId, op.on, op.accountId);
+    case 'setReminder': return cmd.setReminder(op.serviceId, op.on);
   }
+}
+
+/** Comprobante de un pago de servicio: el movimiento nuevo que apareció tras ejecutarlo. */
+export function receiptFrom(before: BankState, after: BankState, op: Operation): Receipt | undefined {
+  if (op.name !== 'payService') return undefined;
+  const srv = before.services.find((x) => x.id === op.serviceId);
+  const known = new Set(before.transactions.map((t) => t.id));
+  const tx = after.transactions.find((t) => t.description === `Pago ${srv?.type} - ${srv?.company}` && !known.has(t.id));
+  const acc = after.accounts.find((a) => a.id === op.accountId);
+  if (!tx || !acc) return undefined;
+  return { reference: tx.reference, description: tx.description, amount: -tx.amount, currency: acc.currency, date: tx.date, accountAlias: acc.alias };
+}
+
+/** Ejecuta una operación sobre un estado (modo local y tests). Lanza BankError si no es válida. */
+export function execute(s: BankState, op: Operation): { state: BankState; receipt?: Receipt } {
+  const state = applyCommand(s, toCommand(op));
+  return { state, receipt: receiptFrom(s, state, op) };
 }
 
 /** Tema del design system de la app en el formato del contrato. */

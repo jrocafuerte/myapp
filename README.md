@@ -15,6 +15,13 @@ El módulo de Pago de servicios es un micro frontend aparte. Para usarlo en desa
 npm run mfe:dev   # en otra terminal; sirve mfe/pagos-servicios en http://localhost:3001
 ```
 
+Por defecto la app funciona en **modo local** (la lógica corre en el teléfono con datos de demostración). Para usar el **BFF**:
+
+```bash
+npm --prefix bff install && npm run bff:dev     # BFF local en http://localhost:4000
+EXPO_PUBLIC_BFF_URL=http://localhost:4000 npx expo start
+```
+
 Escaneá el QR con **Expo Go** (o presioná `w` para web, `a` para Android, `i` para iOS).
 
 **Usuario demo:** `demo` · **Contraseña:** `demo1234` · Token digital: Más → Token digital.
@@ -30,13 +37,16 @@ npm run typecheck # TypeScript estricto
 | Carpeta | Contenido |
 |---|---|
 | `src/app/` | Rutas de Expo Router: login, 5 pestañas (Inicio, Movimientos, Pagos, Tarjetas, Más) y pantallas `feature/[id]`, `cuenta/[id]`, `movimiento/[id]`, `tarjeta/[id]` |
-| `src/store/logic.ts` | **Toda la lógica de negocio** como funciones puras `(estado, …) => estado` con validaciones (`BankError`). Lista para mover a un backend |
+| `shared/domain/logic.ts` | **Toda la lógica de negocio** como funciones puras `(estado, …) => estado` con validaciones (`BankError`). La usan la app (modo local) y el BFF |
 | `src/store/BankContext.tsx` | Estado global, persistencia en AsyncStorage, sesión, cierre por inactividad, tema |
 | `src/store/seed.ts` | Datos de demostración (3 meses de movimientos, cuentas, tarjetas, préstamo, inversiones…) |
 | `src/features/modules/*.tsx` | Pantallas de las funcionalidades, agrupadas por módulo |
 | `src/features/registry.ts` | Catálogo único de funcionalidades (se navega y busca desde **Más**) |
 | `src/design-system/` | **Design system reemplazable**: tokens, tema claro/oscuro, contrato de 25 componentes y adaptador por defecto. Ver [su README](src/design-system/README.md) |
 | `src/ui/` | Capa de UI de la app: reexporta el design system y agrega piezas bancarias (selector de cuentas, feedback de operaciones) |
+| `bff/` | **BFF serverless** (AWS CDK + API Gateway + Lambda + Cognito + DynamoDB). Ver [su README](bff/README.md) |
+| `src/api/` | Cliente del BFF: gateway local/BFF, tokens en almacenamiento seguro, idempotencia |
+| `shared/domain/` | Dominio compartido entre la app y el BFF: lógica, tipos, mensajes y catálogo de comandos |
 | `src/remote-config/`, `remote-config/` | **Configuración remota**: mensajes de error, nombres de menú y mantenimiento sin publicar una versión nueva. Ver [su guía](remote-config/README.md) |
 | `mfe/pagos-servicios/` | **Micro frontend** de Pago de servicios (Next.js), embebido en la app con WebView. Ver [su README](mfe/pagos-servicios/README.md) |
 | `shared/pagos-mfe/` | Contrato tipado entre la app y el micro frontend |
@@ -46,13 +56,13 @@ Procesos automáticos al abrir la app: ejecución de transferencias programadas,
 
 ## Importante antes de producción
 
-Es una app **front-end completa con datos simulados y persistencia local**. Para operar con dinero real hace falta:
+La app tiene dos modos: **local** (demo, todo en el teléfono) y **BFF** (serverless en AWS con Cognito, ver [bff/README.md](bff/README.md)). Para operar con dinero real falta:
 
-- Un backend/core bancario: `logic.ts` describe las reglas, pero saldos, límites y validaciones deben aplicarse en el servidor.
-- Autenticación real (OAuth2/OIDC), contraseñas con hash en servidor y tokens en `expo-secure-store` (hoy la contraseña demo vive en AsyncStorage).
-- OTP real (TOTP/RFC 6238 o push), una librería QR estándar (el QR actual es visual) y cotizaciones de un proveedor de mercado.
-- Cumplimiento: KYC/AML, PCI-DSS para datos de tarjetas, auditoría y cifrado.
-- La biometría requiere un development build (`npx expo run:ios|android`) para Face ID en iOS.
+- **Servicios reales del banco:** el BFF usa hoy un adaptador simulado. Cada dominio se conecta a su API real implementando un adaptador (ver "Integrar los servicios reales del banco" en el README del BFF).
+- **Seguridad de la identidad:** OTP real (TOTP/RFC 6238 o push), MFA en Cognito resuelto en el login, y PIN o biometría con vinculación del dispositivo.
+- **Funcionalidades simuladas:** una librería QR estándar (el QR actual es visual) y cotizaciones de un proveedor de mercado.
+- **Cumplimiento y operación:** KYC/AML, PCI-DSS para datos de tarjetas, AWS WAF, alarmas y auditoría.
+- **Face ID en iOS:** requiere un development build (`npx expo run:ios`).
 
 ## Las 117 funcionalidades
 

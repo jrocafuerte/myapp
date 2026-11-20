@@ -8,7 +8,8 @@ import * as Haptics from 'expo-haptics';
 import React, { useState } from 'react';
 import { Banner, Chips, Screen as DSScreen, type ScreenProps } from '../design-system';
 import { useBank } from '../store/BankContext';
-import type { BankState, Currency } from '../store/types';
+import type { Command } from '../store/commands';
+import type { Currency } from '../store/types';
 import { money } from '../utils/format';
 
 export * from '../design-system';
@@ -28,20 +29,29 @@ export function AccountPicker({ label = 'Cuenta', value, onChange, currency, exc
   return <Chips label={label} options={opts} value={value} onChange={onChange} />;
 }
 
-/** Ejecuta operaciones del banco mostrando error/éxito con Banner y vibración. */
+/**
+ * Ejecuta operaciones del banco mostrando error/éxito con Banner y vibración.
+ * Acepta un comando (cmd.transferOwn(...)) o una tarea asíncrona que no es comando (p. ej. cambiar contraseña).
+ */
 export function useAction() {
-  const { run } = useBank();
+  const { run, attempt } = useBank();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const exec = (op: (s: BankState) => BankState, okMsg: string, validate?: () => string | null) => {
+  const [busy, setBusy] = useState(false);
+  const exec = async (input: Command | (() => Promise<unknown>), okMsg: string, validate?: () => string | null) => {
     setSuccess(null);
     const v = validate?.();
-    const err = v ?? run(op);
+    let err = v;
+    if (!err) {
+      setBusy(true);
+      err = typeof input === 'function' ? (await attempt(input)).error : await run(input);
+      setBusy(false);
+    }
     setError(err);
     if (!err) setSuccess(okMsg);
     Haptics.notificationAsync(err ? Haptics.NotificationFeedbackType.Error : Haptics.NotificationFeedbackType.Success).catch(() => {});
     return !err;
   };
   const feedback = (<><Banner kind="error" text={error} /><Banner kind="success" text={success} /></>);
-  return { exec, feedback, setError, setSuccess };
+  return { exec, feedback, busy, setError, setSuccess };
 }

@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import * as L from '../../store/logic';
+import { cmd } from '../../store/commands';
 import { useBank } from '../../store/BankContext';
 import type { Card as BankCard } from '../../store/types';
 import {
@@ -8,6 +9,7 @@ import {
 } from '../../ui/kit';
 import { date, groupCard, isoDay, maskCard, money, parseAmount } from '../../utils/format';
 import { useMessage } from '../../remote-config/RemoteConfigProvider';
+import { gateway } from '../../api/gateway';
 import type { Feature } from '../types';
 
 export function CardVisual({ card, reveal, onPress }: { card: BankCard; reveal?: boolean; onPress?: () => void }) {
@@ -67,7 +69,7 @@ function LockCard({ cardId }: { cardId?: string }) {
     <Card>
       {picker}
       <ToggleRow title="Bloqueo temporal" subtitle={card.status === 'bloqueada' ? 'La tarjeta está bloqueada' : 'Bloqueala si no la encontrás'}
-        value={card.status === 'bloqueada'} onChange={(v) => exec((s) => L.setCardStatus(s, card.id, v ? 'bloqueada' : 'activa'), v ? 'Tarjeta bloqueada.' : 'Tarjeta desbloqueada.')} />
+        value={card.status === 'bloqueada'} onChange={(v) => exec(cmd.setCardStatus(card.id, v ? 'bloqueada' : 'activa'), v ? 'Tarjeta bloqueada.' : 'Tarjeta desbloqueada.')} />
       {feedback}
     </Card>
   );
@@ -86,28 +88,35 @@ function ReportCard() {
       <ToggleRow title="Reponer tarjeta" subtitle="Nueva numeración, envío en 5 días hábiles" value={reissue} onChange={setReissue} />
       <Banner kind="info" text="La tarjeta denunciada se cancela de forma definitiva." />
       {feedback}
-      {card ? <ConfirmButton title="Denunciar y cancelar" variant="danger" onConfirm={() => exec((s) => L.reportCard(s, card.id, reason, reissue), 'Denuncia registrada.')} /> : null}
+      {card ? <ConfirmButton title="Denunciar y cancelar" variant="danger" onConfirm={() => exec(cmd.reportCard(card.id, reason, reissue), 'Denuncia registrada.')} /> : null}
     </Card></Screen>
   );
 }
 
 function RevealCard({ cardId }: { cardId?: string }) {
-  const { state } = useBank();
+  const { state, attempt } = useBank();
   const { card, picker } = useSelected(cardId);
-  const message = useMessage();
-  const [code, setCode] = useState(''); const [reveal, setReveal] = useState(false); const [err, setErr] = useState<string | null>(null);
+  // Los datos completos se piden al gateway con el token: en modo BFF nunca están en el teléfono.
+  const [secret, setSecret] = useState<{ number: string; cvv: string } | null>(null);
+  const [code, setCode] = useState(''); const [err, setErr] = useState<string | null>(null); const [busy, setBusy] = useState(false);
+  const reveal = !!secret && secret.number.endsWith(card?.number.slice(-4) ?? '-');
   if (!card) return <EmptyState text="Sin tarjetas" />;
   return (
     <Card>
       {picker}
-      <CardVisual card={card} reveal={reveal} />
+      <CardVisual card={reveal && secret ? { ...card, number: secret.number, cvv: secret.cvv } : card} reveal={reveal} />
       {!reveal ? (
         <>
           <Input label="Token digital para ver los datos" value={code} onChangeText={setCode} keyboardType="number-pad" maxLength={6} />
           <Banner kind="error" text={err} />
-          <Button title="Ver número y CVV" icon="eye-outline" onPress={() => { if (code === L.otpCode(state.user.username)) { setReveal(true); setErr(null); setTimeout(() => setReveal(false), 30000); } else setErr(message('token_incorrecto')); }} />
+          <Button title="Ver número y CVV" icon="eye-outline" loading={busy} onPress={async () => {
+            setBusy(true);
+            const r = await attempt(() => gateway.revealCard(state, card.id, code));
+            setBusy(false); setErr(r.error);
+            if (r.value) { setSecret(r.value); setCode(''); setTimeout(() => setSecret(null), 30000); }
+          }} />
         </>
-      ) : <Button title="Ocultar" variant="secondary" onPress={() => setReveal(false)} />}
+      ) : <Button title="Ocultar" variant="secondary" onPress={() => setSecret(null)} />}
     </Card>
   );
 }
@@ -125,7 +134,7 @@ function VirtualCard({ oneTime }: { oneTime?: boolean }) {
         <AccountPicker label="Cuenta asociada" value={acc} onChange={setAcc} />
         <Input label="Límite de gasto" value={limit} onChangeText={setLimit} keyboardType="decimal-pad" />
         {feedback}
-        <Button title="Crear" onPress={() => exec((s) => L.createVirtualCard(s, acc!, parseAmount(limit), !!oneTime), 'Tarjeta creada. Ya podés usarla online.')} />
+        <Button title="Crear" onPress={() => exec(cmd.createVirtualCard(acc!, parseAmount(limit), !!oneTime), 'Tarjeta creada. Ya podés usarla online.')} />
       </Card>
       {virtual.map((c) => <CardVisual key={c.id} card={c} onPress={() => router.push(`/tarjeta/${c.id}`)} />)}
     </Screen>
@@ -145,7 +154,7 @@ function CardPin({ cardId }: { cardId?: string }) {
       <Input label="Nuevo PIN" value={pin} onChangeText={setPin} keyboardType="number-pad" secureTextEntry maxLength={4} />
       <Input label="Repetir nuevo PIN" value={conf} onChangeText={setConf} keyboardType="number-pad" secureTextEntry maxLength={4} />
       {feedback}
-      <Button title="Cambiar PIN" onPress={() => { if (exec((s) => L.changeCardPin(s, card.id, cur, pin, conf), 'PIN actualizado.')) { setCur(''); setPin(''); setConf(''); } }} />
+      <Button title="Cambiar PIN" onPress={async () => { if (await exec(cmd.changeCardPin(card.id, cur, pin, conf), 'PIN actualizado.')) { setCur(''); setPin(''); setConf(''); } }} />
     </Card>
   );
 }
@@ -164,7 +173,7 @@ function CardLimit({ cardId }: { cardId?: string }) {
       <Progress value={card.used / card.limit} />
       <Input label="Nuevo límite" value={limit} onChangeText={setLimit} keyboardType="decimal-pad" />
       {feedback}
-      <Button title="Guardar límite" onPress={() => { if (exec((s) => L.setCardLimit(s, card.id, parseAmount(limit)), 'Límite actualizado.')) setLimit(''); }} />
+      <Button title="Guardar límite" onPress={async () => { if (await exec(cmd.setCardLimit(card.id, parseAmount(limit)), 'Límite actualizado.')) setLimit(''); }} />
     </Card>
   );
 }
@@ -176,8 +185,8 @@ function CardOnline({ cardId }: { cardId?: string }) {
   return (
     <Card>
       {picker}
-      <ToggleRow title="Compras online" subtitle="Permitir comercio electrónico" value={card.onlineEnabled} onChange={(v) => exec((s) => L.setCardFlag(s, card.id, 'onlineEnabled', v), 'Preferencia guardada.')} />
-      <ToggleRow title="Uso en el exterior" subtitle="Permitir compras fuera del país" value={card.abroadEnabled} onChange={(v) => exec((s) => L.setCardFlag(s, card.id, 'abroadEnabled', v), 'Preferencia guardada.')} />
+      <ToggleRow title="Compras online" subtitle="Permitir comercio electrónico" value={card.onlineEnabled} onChange={(v) => exec(cmd.setCardFlag(card.id, 'onlineEnabled', v), 'Preferencia guardada.')} />
+      <ToggleRow title="Uso en el exterior" subtitle="Permitir compras fuera del país" value={card.abroadEnabled} onChange={(v) => exec(cmd.setCardFlag(card.id, 'abroadEnabled', v), 'Preferencia guardada.')} />
       {feedback}
     </Card>
   );
@@ -197,7 +206,7 @@ function TravelNotice() {
       <Input label="Desde (AAAA-MM-DD)" value={from} onChangeText={setFrom} />
       <Input label="Hasta (AAAA-MM-DD)" value={to} onChangeText={setTo} />
       {feedback}
-      <Button title="Registrar viaje" icon="airplane-outline" onPress={() => card && exec((s) => L.setTravelNotice(s, card.id, country, from, to), 'Aviso registrado. Uso en el exterior habilitado.')} />
+      <Button title="Registrar viaje" icon="airplane-outline" onPress={() => card && exec(cmd.setTravelNotice(card.id, country, from, to), 'Aviso registrado. Uso en el exterior habilitado.')} />
     </Card></Screen>
   );
 }
@@ -246,7 +255,7 @@ function Installments() {
       <KeyValue k="Total financiado" v={money(plan.total)} />
       <KeyValue k="Intereses" v={money(plan.interest)} />
       {feedback}
-      {card ? <Button title="Confirmar compra en cuotas" onPress={() => exec((s) => L.cardPurchase(s, card.id, `${merchant || 'Compra'} (${months} cuotas)`, plan.total), 'Compra registrada en tu tarjeta.')} /> : null}
+      {card ? <Button title="Confirmar compra en cuotas" onPress={() => exec(cmd.cardPurchase(card.id, `${merchant || 'Compra'} (${months} cuotas)`, plan.total), 'Compra registrada en tu tarjeta.')} /> : null}
     </Card></Screen>
   );
 }
@@ -263,7 +272,7 @@ function LimitIncrease() {
       {card?.limitRequest ? <Banner kind="info" text={`Última solicitud: ${money(card.limitRequest.amount)} · ${card.limitRequest.status}`} /> : null}
       <Input label="Nuevo límite deseado" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" hint="Evaluamos al instante según tus ingresos (hasta 3x)." />
       {feedback}
-      <Button title="Solicitar" onPress={() => card && exec((s) => L.requestLimitIncrease(s, card.id, parseAmount(amount)), 'Solicitud evaluada. Revisá tus notificaciones.')} />
+      <Button title="Solicitar" onPress={() => card && exec(cmd.requestLimitIncrease(card.id, parseAmount(amount)), 'Solicitud evaluada. Revisá tus notificaciones.')} />
     </Card></Screen>
   );
 }

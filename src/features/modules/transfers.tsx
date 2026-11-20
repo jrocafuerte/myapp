@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Share } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
 import * as L from '../../store/logic';
+import { cmd } from '../../store/commands';
 import { useBank } from '../../store/BankContext';
 import type { Currency, Service } from '../../store/types';
 import {
@@ -47,7 +48,7 @@ function TransferOwn() {
       {fa && ta && fa.currency !== ta.currency && n > 0 ? <Banner kind="info" text={`Recibirás ≈ ${money(n * L.fxQuote(fa.currency, ta.currency).rate, ta.currency)} (tipo de cambio con spread 1.5%).`} /> : null}
       <Input label="Concepto (opcional)" value={concept} onChangeText={setConcept} />
       {feedback}
-      <Button title="Transferir" icon="swap-horizontal" disabled={!from || !to} onPress={() => { if (exec((s) => L.transferOwn(s, from!, to!, n, concept), 'Transferencia realizada.')) setAmount(''); }} />
+      <Button title="Transferir" icon="swap-horizontal" disabled={!from || !to} onPress={async () => { if (await exec(cmd.transferOwn(from!, to!, n, concept), 'Transferencia realizada.')) setAmount(''); }} />
     </Card></Screen>
   );
 }
@@ -69,7 +70,7 @@ function TransferThird({ favoritesOnly }: { favoritesOnly?: boolean }) {
       <Input label="Concepto" value={concept} onChangeText={setConcept} placeholder="Ej: Varios" />
       {tf.field}
       {feedback}
-      <Button title="Transferir" icon="paper-plane-outline" disabled={!from || !ben} onPress={() => { if (exec((s) => L.transferToBeneficiary(s, from!, ben!, n, concept), 'Transferencia enviada.', tf.check)) { setAmount(''); tf.reset(); } }} />
+      <Button title="Transferir" icon="paper-plane-outline" disabled={!from || !ben} onPress={async () => { if (await exec(cmd.transferToBeneficiary(from!, ben!, n, concept), 'Transferencia enviada.', tf.check)) { setAmount(''); tf.reset(); } }} />
     </Card></Screen>
   );
 }
@@ -90,7 +91,7 @@ function TransferAlias() {
       {!found ? <ToggleRow title="Guardar en mi agenda" value={save} onChange={setSave} /> : null}
       {tf.field}
       {feedback}
-      <Button title="Transferir" disabled={!from} onPress={() => { if (exec((s) => L.transferByAlias(s, from!, key, name, n, '', save), 'Transferencia enviada.', tf.check)) { setAmount(''); tf.reset(); } }} />
+      <Button title="Transferir" disabled={!from} onPress={async () => { if (await exec(cmd.transferByAlias(from!, key, name, n, '', save), 'Transferencia enviada.', tf.check)) { setAmount(''); tf.reset(); } }} />
     </Card></Screen>
   );
 }
@@ -106,8 +107,8 @@ function Beneficiaries({ mode }: { mode: 'list' | 'remove' | 'favorites' }) {
         <Card key={b.id}>
           <ListItem icon={b.favorite ? 'star' : 'person-outline'} title={b.name} subtitle={`${b.bank} · ${b.alias || b.accountNumber}`} />
           <Inline gap="sm">
-            <Button small title={b.favorite ? 'Quitar favorito' : 'Favorito'} icon={b.favorite ? 'star' : 'star-outline'} variant="secondary" onPress={() => exec((s) => L.toggleFavorite(s, b.id), 'Agenda actualizada.')} />
-            {mode !== 'favorites' ? <ConfirmButton small title="Eliminar" variant="ghost" onConfirm={() => exec((s) => L.removeBeneficiary(s, b.id), `${b.name} eliminado.`)} /> : null}
+            <Button small title={b.favorite ? 'Quitar favorito' : 'Favorito'} icon={b.favorite ? 'star' : 'star-outline'} variant="secondary" onPress={() => exec(cmd.toggleFavorite(b.id), 'Agenda actualizada.')} />
+            {mode !== 'favorites' ? <ConfirmButton small title="Eliminar" variant="ghost" onConfirm={() => exec(cmd.removeBeneficiary(b.id), `${b.name} eliminado.`)} /> : null}
           </Inline>
         </Card>
       ))}
@@ -127,7 +128,7 @@ function AddBeneficiary() {
       <Input label="Alias (opcional)" value={f.alias} onChangeText={(alias) => setF({ ...f, alias })} autoCapitalize="none" />
       <Chips label="Moneda" options={(['USD', 'EUR', 'GBP'] as Currency[]).map((c) => ({ label: c, value: c }))} value={f.currency} onChange={(currency) => setF({ ...f, currency })} />
       {feedback}
-      <Button title="Agregar" onPress={() => { if (exec((s) => L.addBeneficiary(s, f), 'Destinatario agregado.')) setF({ name: '', bank: '', accountNumber: '', alias: '', currency: 'USD' }); }} />
+      <Button title="Agregar" onPress={async () => { if (await exec(cmd.addBeneficiary(f), 'Destinatario agregado.')) setF({ name: '', bank: '', accountNumber: '', alias: '', currency: 'USD' }); }} />
     </Card></Screen>
   );
 }
@@ -149,7 +150,7 @@ function ScheduleTransfer({ recurring }: { recurring?: boolean }) {
         <Chips label="Frecuencia" options={[...(recurring ? [] : [{ label: 'Única vez', value: 'unica' as const }]), { label: 'Semanal', value: 'semanal' as const }, { label: 'Mensual', value: 'mensual' as const }]} value={freq} onChange={setFreq} />
         <Input label="Concepto" value={concept} onChangeText={setConcept} />
         {feedback}
-        <Button title="Programar" icon="calendar-outline" disabled={!from || !ben} onPress={() => { if (exec((s) => L.scheduleTransfer(s, { fromId: from!, beneficiaryId: ben!, amount: parseAmount(amount), date: when, frequency: freq, concept }), 'Transferencia programada.')) setAmount(''); }} />
+        <Button title="Programar" icon="calendar-outline" disabled={!from || !ben} onPress={async () => { if (await exec(cmd.scheduleTransfer({ fromId: from!, beneficiaryId: ben!, amount: parseAmount(amount), date: when, frequency: freq, concept }), 'Transferencia programada.')) setAmount(''); }} />
       </Card>
       <ScheduledList />
       {list.length === 0 ? null : <Text variant="caption" tone="muted">Las programadas se ejecutan automáticamente al abrir la app en la fecha indicada.</Text>}
@@ -170,7 +171,7 @@ function ScheduledList() {
         return (
           <Stack key={x.id} gap="sm">
             <ListItem icon="repeat-outline" title={`${b?.name ?? '—'} · ${x.concept}`} subtitle={`${x.frequency} · próxima ${date(x.nextDate)}`} right={money(x.amount)} />
-            <ConfirmButton small title="Cancelar" variant="ghost" onConfirm={() => exec((s) => L.cancelScheduled(s, x.id), 'Transferencia cancelada.')} />
+            <ConfirmButton small title="Cancelar" variant="ghost" onConfirm={() => exec(cmd.cancelScheduled(x.id), 'Transferencia cancelada.')} />
           </Stack>
         );
       })}
@@ -192,7 +193,7 @@ function TransferLimits() {
       <Input label="Límite diario (USD, máx. 50,000)" value={daily} onChangeText={setDaily} keyboardType="decimal-pad" />
       {tf.field}
       {feedback}
-      <Button title="Guardar límites" onPress={() => exec((s) => L.setTransferLimits(s, parseAmount(per), parseAmount(daily)), 'Límites actualizados.', tf.check)} />
+      <Button title="Guardar límites" onPress={() => exec(cmd.setTransferLimits(parseAmount(per), parseAmount(daily)), 'Límites actualizados.', tf.check)} />
     </Card></Screen>
   );
 }
@@ -220,7 +221,7 @@ function International() {
       {fa && cost > 0 ? <Banner kind="info" text={`Debitaremos ${money(cost, fa.currency)} + comisión ${money(L.convert(L.INTL_FEE_USD, 'USD', fa.currency), fa.currency)}. Llega en 1-3 días hábiles.`} /> : null}
       {tf.field}
       {feedback}
-      <Button title="Enviar" icon="earth-outline" disabled={!from} onPress={() => exec((s) => L.transferInternational(s, from!, { ...f, swift: f.swift.toUpperCase(), iban: f.iban.toUpperCase(), amount: n }), 'Transferencia internacional enviada.', tf.check)} />
+      <Button title="Enviar" icon="earth-outline" disabled={!from} onPress={() => exec(cmd.transferInternational(from!, { ...f, swift: f.swift.toUpperCase(), iban: f.iban.toUpperCase(), amount: n }), 'Transferencia internacional enviada.', tf.check)} />
     </Card></Screen>
   );
 }
@@ -273,7 +274,7 @@ function RequestMoney() {
         <Input label="A quién" value={who} onChangeText={setWho} placeholder="Nombre o alias" />
         <Input label="Monto" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
         <Input label="Concepto" value={concept} onChangeText={setConcept} />
-        <Button title="Enviar solicitud" onPress={() => { if (exec((s) => L.requestMoney(s, who, parseAmount(amount), concept), 'Solicitud enviada.')) { setWho(''); setAmount(''); } }} />
+        <Button title="Enviar solicitud" onPress={async () => { if (await exec(cmd.requestMoney(who, parseAmount(amount), concept), 'Solicitud enviada.')) { setWho(''); setAmount(''); } }} />
       </Card>
       {feedback}
       <Card>
@@ -285,8 +286,8 @@ function RequestMoney() {
               <Stack key={r.id} gap="sm">
                 <ListItem icon="hand-left-outline" title={`${r.counterpart} · ${r.concept}`} subtitle={date(r.date)} right={money(r.amount)} />
                 <Inline gap="sm">
-                  <Button small title="Pagar" onPress={() => exec((s) => L.answerRequest(s, r.id, true, payFrom!), 'Solicitud pagada.')} />
-                  <Button small title="Rechazar" variant="ghost" onPress={() => exec((s) => L.answerRequest(s, r.id, false, payFrom!), 'Solicitud rechazada.')} />
+                  <Button small title="Pagar" onPress={() => exec(cmd.answerRequest(r.id, true, payFrom!), 'Solicitud pagada.')} />
+                  <Button small title="Rechazar" variant="ghost" onPress={() => exec(cmd.answerRequest(r.id, false, payFrom!), 'Solicitud rechazada.')} />
                 </Inline>
               </Stack>
             ))}
@@ -317,7 +318,7 @@ function SplitBillScreen() {
         <Input label="Personas (separadas por coma)" value={names} onChangeText={setNames} placeholder="Juan, Sofía, Pedro" />
         <ToggleRow title="Incluirme en la división" value={me} onChange={setMe} />
         {people.length && share > 0 ? <Text>Cada uno paga <Text weight="bold">{money(share)}</Text></Text> : null}
-        <Button title="Crear y enviar solicitudes" onPress={() => { if (exec((s) => L.createSplit(s, concept, parseAmount(total), people, me), 'Gasto dividido y solicitudes enviadas.')) { setTotal(''); setNames(''); } }} />
+        <Button title="Crear y enviar solicitudes" onPress={async () => { if (await exec(cmd.createSplit(concept, parseAmount(total), people, me), 'Gasto dividido y solicitudes enviadas.')) { setTotal(''); setNames(''); } }} />
       </Card>
       {feedback}
       {state.splits.length ? <AccountPicker label="Acreditar pagos en" value={acc} onChange={setAcc} /> : null}
@@ -327,7 +328,7 @@ function SplitBillScreen() {
           {sp.participants.map((p) => (
             <Inline key={p.name} align="center" justify="between">
               <Text>{p.paid ? '✅' : '⏳'} {p.name} · {money(p.share)}</Text>
-              {!p.paid ? <Button small title="Marcar pagado" variant="secondary" onPress={() => exec((s) => L.markSplitPaid(s, sp.id, p.name, acc!), `${p.name} pagó.`)} /> : null}
+              {!p.paid ? <Button small title="Marcar pagado" variant="secondary" onPress={() => exec(cmd.markSplitPaid(sp.id, p.name, acc!), `${p.name} pagó.`)} /> : null}
             </Inline>
           ))}
         </Card>
@@ -348,7 +349,7 @@ function MobileTopUp() {
       <Input label="Número" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
       <Chips label="Monto" options={[5, 10, 20, 30, 50].map((v) => ({ label: money(v), value: v }))} value={amount} onChange={setAmount} />
       {feedback}
-      <Button title="Recargar" icon="phone-portrait-outline" onPress={() => exec((s) => L.mobileTopUp(s, acc!, op, phone, amount), 'Recarga realizada.')} />
+      <Button title="Recargar" icon="phone-portrait-outline" onPress={() => exec(cmd.mobileTopUp(acc!, op, phone, amount), 'Recarga realizada.')} />
     </Card></Screen>
   );
 }
@@ -364,7 +365,7 @@ function PayTaxes() {
       <Input label="Identificador (partida, patente, RUC…)" value={taxId} onChangeText={setTaxId} autoCapitalize="characters" />
       <Input label="Monto" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
       {feedback}
-      <Button title="Pagar impuesto" onPress={() => { if (exec((s) => L.payTax(s, acc!, tax, taxId, parseAmount(amount)), 'Impuesto pagado.')) setAmount(''); }} />
+      <Button title="Pagar impuesto" onPress={async () => { if (await exec(cmd.payTax(acc!, tax, taxId, parseAmount(amount)), 'Impuesto pagado.')) setAmount(''); }} />
     </Card></Screen>
   );
 }
@@ -381,7 +382,7 @@ function PayQr() {
       <Input label="Código QR" value={code} onChangeText={setCode} autoCapitalize="characters" />
       <Input label="Monto" value={pre ?? amount} onChangeText={setAmount} keyboardType="decimal-pad" editable={!pre} />
       {feedback}
-      <Button title="Pagar" icon="qr-code-outline" onPress={() => { if (exec((s) => L.payQr(s, acc!, code, parseAmount(pre ?? amount)), 'Pago realizado. ¡Sumaste puntos!')) { setCode(''); setAmount(''); } }} />
+      <Button title="Pagar" icon="qr-code-outline" onPress={async () => { if (await exec(cmd.payQr(acc!, code, parseAmount(pre ?? amount)), 'Pago realizado. ¡Sumaste puntos!')) { setCode(''); setAmount(''); } }} />
     </Card></Screen>
   );
 }
@@ -396,7 +397,7 @@ function TransportTopUp() {
       <Input label="Número de tarjeta de transporte" value={card} onChangeText={setCard} keyboardType="number-pad" />
       <Input label="Monto (2-100)" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
       {feedback}
-      <Button title="Recargar" icon="bus-outline" onPress={() => exec((s) => L.transportTopUp(s, acc!, card, parseAmount(amount)), 'Recarga acreditada.')} />
+      <Button title="Recargar" icon="bus-outline" onPress={() => exec(cmd.transportTopUp(acc!, card, parseAmount(amount)), 'Recarga acreditada.')} />
     </Card></Screen>
   );
 }
@@ -421,7 +422,7 @@ function PayCreditCard() {
       </Inline>
       <Input label="Monto" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
       {feedback}
-      <Button title="Pagar" onPress={() => { if (exec((s) => L.payCreditCard(s, card.id, acc!, parseAmount(amount)), 'Pago de tarjeta realizado.')) setAmount(''); }} />
+      <Button title="Pagar" onPress={async () => { if (await exec(cmd.payCreditCard(card.id, acc!, parseAmount(amount)), 'Pago de tarjeta realizado.')) setAmount(''); }} />
     </Card></Screen>
   );
 }

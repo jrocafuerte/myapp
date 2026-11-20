@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { TxRow } from '../../features/modules/accounts';
 import { UserAvatar } from '../../features/modules/profile';
 import * as L from '../../store/logic';
+import { cmd } from '../../store/commands';
 import { useBank } from '../../store/BankContext';
 import { FeatureGrid } from '../../ui/FeatureTile';
 import {
@@ -35,7 +36,7 @@ export default function Home() {
               <Text tone="inverse" variant="heading">{state.user.name.split(' ')[0]}</Text>
             </Stack>
             <IconButton icon={hidden ? 'eye-off-outline' : 'eye-outline'} tone="inverse" accessibilityLabel={hidden ? 'Mostrar saldos' : 'Ocultar saldos'}
-              onPress={() => run((s) => L.mut(s, (d) => { d.settings.hideBalances = !d.settings.hideBalances; }))} />
+              onPress={() => run(cmd.updatePreferences({ hideBalances: !hidden }))} />
             <IconButton icon="notifications-outline" tone="inverse" badge={unread} accessibilityLabel={`Notificaciones, ${unread} sin leer`} onPress={() => router.push('/feature/notification-center')} />
           </Inline>
           {state.settings.quickBalanceWidget ? (

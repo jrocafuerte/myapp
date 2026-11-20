@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import * as L from '../../store/logic';
+import { cmd } from '../../store/commands';
 import { useBank } from '../../store/BankContext';
 import type { Insurance, MarketAsset } from '../../store/types';
 import {
@@ -59,7 +60,7 @@ function Buy({ filter }: { filter?: MarketAsset['type'][] }) {
         {a && n > 0 ? <KeyValue k="Recibirás aprox." v={`${((n * 0.995) / a.price).toFixed(6)} u. (comisión 0.5%)`} /> : null}
         {a && a.risk >= 4 && state.settings.investorProfile !== 'agresivo' && state.settings.investorProfile !== 'moderado' ? <Banner kind="info" text="Instrumento de alto riesgo: requiere completar el test de perfil de inversor." /> : null}
         {feedback}
-        <Button title="Confirmar compra" disabled={!a || !acc} onPress={() => exec((s) => L.buyAsset(s, acc!, sym!, n), `Compraste ${sym}.`)} />
+        <Button title="Confirmar compra" disabled={!a || !acc} onPress={() => exec(cmd.buyAsset(acc!, sym!, n), `Compraste ${sym}.`)} />
       </Card>
       <Card><Text variant="heading">Opciones disponibles</Text>{assets.map((x) => <AssetRow key={x.symbol} a={x} />)}</Card>
     </Screen>
@@ -84,7 +85,7 @@ function Sell() {
       {a && parseAmount(qty) > 0 ? <KeyValue k="Recibirás aprox." v={money(parseAmount(qty) * a.price * 0.995)} /> : null}
       <AccountPicker label="Acreditar en (USD)" value={acc} onChange={setAcc} currency="USD" />
       {feedback}
-      <Button title="Confirmar venta" onPress={() => { if (exec((s) => L.sellAsset(s, acc!, sym!, parseAmount(qty)), `Vendiste ${sym}.`)) setQty(''); }} />
+      <Button title="Confirmar venta" onPress={async () => { if (await exec(cmd.sellAsset(acc!, sym!, parseAmount(qty)), `Vendiste ${sym}.`)) setQty(''); }} />
     </Card></Screen>
   );
 }
@@ -117,7 +118,7 @@ function FxExchange() {
       <Input label={`Monto en ${fa?.currency ?? ''}`} value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
       {q && ta && parseAmount(amount) > 0 ? <KeyValue k="Recibís" v={money(parseAmount(amount) * q.rate, ta.currency)} /> : null}
       {feedback}
-      <Button title="Operar" disabled={!from || !to} onPress={() => { if (exec((s) => L.exchangeCurrency(s, from!, to!, parseAmount(amount)), 'Operación de cambio realizada.')) setAmount(''); }} />
+      <Button title="Operar" disabled={!from || !to} onPress={async () => { if (await exec(cmd.exchangeCurrency(from!, to!, parseAmount(amount)), 'Operación de cambio realizada.')) setAmount(''); }} />
     </Card></Screen>
   );
 }
@@ -140,7 +141,7 @@ function InvestorProfile() {
         <Card key={p.q}><Chips label={`${i + 1}. ${p.q}`} options={p.opts.map((o, j) => ({ label: o, value: j }))} value={ans[i] === -1 ? undefined : ans[i]} onChange={(v) => setAns(ans.map((x, k) => (k === i ? v : x)))} /></Card>
       ))}
       {feedback}
-      <Button title="Calcular perfil" disabled={ans.includes(-1)} onPress={() => exec((s) => L.setInvestorProfile(s, ans), `Tu perfil es ${L.investorProfile(ans)}.`)} />
+      <Button title="Calcular perfil" disabled={ans.includes(-1)} onPress={() => exec(cmd.setInvestorProfile(ans), `Tu perfil es ${L.investorProfile(ans)}.`)} />
     </Screen>
   );
 }
@@ -157,7 +158,7 @@ function MyInsurance() {
         <Card key={i.id}>
           <ListItem icon="umbrella-outline" title={`Seguro de ${i.type}`} subtitle={`${i.status} · desde ${date(i.start)}`} right={`${money(i.premium)}/mes`} />
           <KeyValue k="Cobertura" v={money(i.coverage)} />
-          {i.status === 'vigente' ? <ConfirmButton small title="Dar de baja" variant="ghost" onConfirm={() => exec((s) => L.cancelInsurance(s, i.id), 'Seguro dado de baja.')} /> : null}
+          {i.status === 'vigente' ? <ConfirmButton small title="Dar de baja" variant="ghost" onConfirm={() => exec(cmd.cancelInsurance(i.id), 'Seguro dado de baja.')} /> : null}
         </Card>
       ))}
       {state.claims.length ? <Card><Text variant="heading">Siniestros</Text>{state.claims.map((c) => <ListItem key={c.id} icon="document-text-outline" title={c.description.slice(0, 40)} subtitle={`${date(c.date)} · ${c.status}`} />)}</Card> : null}
@@ -180,7 +181,7 @@ function QuoteInsurance({ contract }: { contract?: boolean }) {
         <>
           <AccountPicker label="Débito mensual de" value={acc} onChange={setAcc} />
           {feedback}
-          <Button title="Contratar" disabled={premium === null} onPress={() => exec((s) => L.contractInsurance(s, type, parseAmount(coverage), acc!), `¡Seguro de ${type} contratado!`)} />
+          <Button title="Contratar" disabled={premium === null} onPress={() => exec(cmd.contractInsurance(type, parseAmount(coverage), acc!), `¡Seguro de ${type} contratado!`)} />
         </>
       ) : null}
     </Card></Screen>
@@ -199,7 +200,7 @@ function FileClaim() {
       <Chips label="Seguro" options={active.map((i) => ({ label: i.type, value: i.id }))} value={ins} onChange={setIns} />
       <Input label="¿Qué pasó?" value={desc} onChangeText={setDesc} multiline placeholder="Describí fecha, lugar y lo ocurrido" />
       {feedback}
-      <Button title="Enviar denuncia" onPress={() => { if (exec((s) => L.fileClaim(s, ins!, desc), 'Denuncia recibida. Te contactaremos en 48 h.')) setDesc(''); }} />
+      <Button title="Enviar denuncia" onPress={async () => { if (await exec(cmd.fileClaim(ins!, desc), 'Denuncia recibida. Te contactaremos en 48 h.')) setDesc(''); }} />
     </Card></Screen>
   );
 }

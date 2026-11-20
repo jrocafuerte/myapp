@@ -29,7 +29,8 @@
         {
           "faceIDPermission": "Permite usar Face ID para ingresar a Banco Plus."
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }

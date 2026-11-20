@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import * as L from '../../store/logic';
+import { cmd } from '../../store/commands';
 import { useBank } from '../../store/BankContext';
 import type { Category, Loan } from '../../store/types';
 import {
@@ -32,8 +33,8 @@ function GoalCard({ id, actions }: { id: string; actions?: 'contribute' | 'withd
           <AccountPicker label={actions === 'contribute' ? 'Desde' : 'Hacia'} value={acc} onChange={setAcc} currency="USD" />
           <Input label="Monto" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
           <Button title={actions === 'contribute' ? 'Aportar' : 'Retirar'} variant={actions === 'contribute' ? 'primary' : 'secondary'}
-            onPress={() => { if (exec((s) => (actions === 'contribute' ? L.contributeGoal : L.withdrawGoal)(s, g.id, acc!, parseAmount(amount)), actions === 'contribute' ? 'Aporte realizado.' : 'Retiro realizado.')) setAmount(''); }} />
-          {actions === 'withdraw' ? <ConfirmButton small title="Eliminar meta" variant="ghost" onConfirm={() => exec((s) => L.deleteGoal(s, g.id, acc!), 'Meta eliminada; el saldo volvió a tu cuenta.')} /> : null}
+            onPress={async () => { if (await exec(actions === 'contribute' ? cmd.contributeGoal(g.id, acc!, parseAmount(amount)) : cmd.withdrawGoal(g.id, acc!, parseAmount(amount)), actions === 'contribute' ? 'Aporte realizado.' : 'Retiro realizado.')) setAmount(''); }} />
+          {actions === 'withdraw' ? <ConfirmButton small title="Eliminar meta" variant="ghost" onConfirm={() => exec(cmd.deleteGoal(g.id, acc!), 'Meta eliminada; el saldo volvió a tu cuenta.')} /> : null}
         </>
       ) : null}
       {feedback}
@@ -55,7 +56,7 @@ function Goals() {
         <Input label="Monto objetivo" value={target} onChangeText={setTarget} keyboardType="decimal-pad" />
         <Input label="Fecha límite (AAAA-MM-DD)" value={deadline} onChangeText={setDeadline} />
         {feedback}
-        <Button title="Crear meta" onPress={() => { if (exec((s) => L.createGoal(s, name, parseAmount(target), deadline, emoji), 'Meta creada.')) { setName(''); setTarget(''); } }} />
+        <Button title="Crear meta" onPress={async () => { if (await exec(cmd.createGoal(name, parseAmount(target), deadline, emoji), 'Meta creada.')) { setName(''); setTarget(''); } }} />
       </Card>
     </Screen>
   );
@@ -76,7 +77,7 @@ function RoundUp() {
       <Text variant="heading">Redondeo automático</Text>
       <Text tone="muted" variant="bodySmall">Cada compra con tarjeta o pago se redondea al dólar siguiente y la diferencia va a tu meta. Ej: gastás 4.30 → ahorrás 0.70.</Text>
       <Chips label="Meta destino" options={state.goals.map((g) => ({ label: `${g.emoji} ${g.name}`, value: g.id }))} value={goal} onChange={setGoal} />
-      <ToggleRow title="Activar redondeo" value={state.settings.roundUp} onChange={(v) => exec((s) => L.setRoundUp(s, v, goal), v ? 'Redondeo activado.' : 'Redondeo desactivado.')} />
+      <ToggleRow title="Activar redondeo" value={state.settings.roundUp} onChange={(v) => exec(cmd.setRoundUp(v, goal), v ? 'Redondeo activado.' : 'Redondeo desactivado.')} />
       <KeyValue k="Ahorrado con redondeos" v={money(saved)} />
       {feedback}
     </Card></Screen>
@@ -104,7 +105,7 @@ function Budgets() {
         <Chips options={CATEGORIES.filter((c) => !['Ingresos', 'Transferencias', 'Ahorro', 'Inversiones'].includes(c)).map((c) => ({ label: c, value: c }))} value={cat} onChange={setCat} />
         <Input label="Límite mensual (0 para quitar)" value={limit} onChangeText={setLimit} keyboardType="decimal-pad" />
         {feedback}
-        <Button title="Guardar" onPress={() => { if (exec((s) => L.setBudget(s, cat, parseAmount(limit) || 0), 'Presupuesto guardado.')) setLimit(''); }} />
+        <Button title="Guardar" onPress={async () => { if (await exec(cmd.setBudget(cat, parseAmount(limit) || 0), 'Presupuesto guardado.')) setLimit(''); }} />
       </Card>
     </Screen>
   );
@@ -179,7 +180,7 @@ function FixedDeposit() {
         <KeyValue k="Intereses" v={money(r.interest)} /><KeyValue k="Total al vencimiento" v={money(r.total)} />
         <ToggleRow title="Renovación automática" value={renew} onChange={setRenew} />
         {feedback}
-        <Button title="Constituir" onPress={() => exec((s) => L.createFixedDeposit(s, acc!, parseAmount(amount), days, renew), 'Plazo fijo constituido.')} />
+        <Button title="Constituir" onPress={() => exec(cmd.createFixedDeposit(acc!, parseAmount(amount), days, renew), 'Plazo fijo constituido.')} />
       </Card>
       <Card>
         <Text variant="heading">Mis plazos fijos</Text>
@@ -255,7 +256,7 @@ function RequestLoan() {
       <AccountPicker label="Acreditar en" value={acc} onChange={setAcc} currency="USD" />
       <Banner kind="info" text={`Cuota estimada ${money(sim.quota)} · TNA ${L.LOAN_RATES[kind]}%. Evaluamos al instante (cuota ≤ 40% de tus ingresos).`} />
       {feedback}
-      <ConfirmButton title="Solicitar y acreditar" confirmText="Confirmar solicitud" onConfirm={() => exec((s) => L.requestLoan(s, kind, parseAmount(amount), months, acc!), '¡Préstamo aprobado y acreditado!')} />
+      <ConfirmButton title="Solicitar y acreditar" confirmText="Confirmar solicitud" onConfirm={() => exec(cmd.requestLoan(kind, parseAmount(amount), months, acc!), '¡Préstamo aprobado y acreditado!')} />
     </Card></Screen>
   );
 }
@@ -279,12 +280,12 @@ function MyLoans({ action }: { action?: 'pay' | 'prepay' | 'schedule' }) {
             <KeyValue k="Cuotas pagadas" v={`${l.paidInstallments} / ${l.months}`} />
             <KeyValue k="Cuota" v={money(l.installment)} />
             <KeyValue k="Saldo de capital" v={money(l.outstanding)} />
-            {action === 'pay' ? <Button title={`Pagar cuota ${l.paidInstallments + 1}`} onPress={() => exec((s) => L.payLoanInstallment(s, l.id, acc!), 'Cuota pagada.')} /> : null}
+            {action === 'pay' ? <Button title={`Pagar cuota ${l.paidInstallments + 1}`} onPress={() => exec(cmd.payLoanInstallment(l.id, acc!), 'Cuota pagada.')} /> : null}
             {action === 'prepay' ? (
               <>
                 <KeyValue k="Comisión precancelación (2%)" v={money(l.outstanding * L.PREPAYMENT_FEE)} />
                 <KeyValue k="Ahorro en intereses" v={money(sim.schedule.slice(l.paidInstallments).reduce((a, r) => a + r.interest, 0))} />
-                <ConfirmButton title={`Precancelar ${money(l.outstanding * (1 + L.PREPAYMENT_FEE))}`} onConfirm={() => exec((s) => L.prepayLoan(s, l.id, acc!), 'Préstamo cancelado.')} />
+                <ConfirmButton title={`Precancelar ${money(l.outstanding * (1 + L.PREPAYMENT_FEE))}`} onConfirm={() => exec(cmd.prepayLoan(l.id, acc!), 'Préstamo cancelado.')} />
               </>
             ) : null}
             {action === 'schedule' ? (

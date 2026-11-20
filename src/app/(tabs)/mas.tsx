@@ -9,7 +9,7 @@ import {
 import { useT } from '../../utils/i18n';
 
 export default function More() {
-  const { state, setAuthenticated, reset } = useBank();
+  const { state, signOut, reset } = useBank();
   const t = useT();
   const [q, setQ] = useState('');
   const catalog = useCatalog();
@@ -34,7 +34,7 @@ export default function More() {
           {g.features.map((f) => <ListItem key={f.id} icon={f.icon} title={f.title} subtitle={f.maintenance ? `En mantenimiento · ${f.description}` : f.description} onPress={() => router.push(`/feature/${f.id}`)} />)}
         </Card>
       ))}
-      <Button title={t('logout')} icon="log-out-outline" variant="secondary" onPress={() => { setAuthenticated(false); router.replace('/login'); }} />
+      <Button title={t('logout')} icon="log-out-outline" variant="secondary" onPress={() => { signOut(); router.replace('/login'); }} />
       <ConfirmButton title="Restablecer datos de demostración" variant="ghost" onConfirm={reset} />
       <Button title="Design system (catálogo)" icon="color-palette-outline" variant="ghost" onPress={() => router.push('/design-system')} />
       <Text variant="micro" tone="muted" align="center">Banco Plus · v1.0.0 · {catalog.count} funcionalidades</Text>

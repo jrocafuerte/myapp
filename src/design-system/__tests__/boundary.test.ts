@@ -20,7 +20,7 @@ const RULES: [RegExp, string][] = [
   [/#[0-9A-Fa-f]{3,6}\b/, 'usa un rol de color del tema en lugar de un hex'],
   [/from '(\.\.\/)+design-system\/(adapters|tokens|theme|contracts)/, "importá desde 'design-system' (index), no desde archivos internos"],
 ];
-const ALLOW = ['store/seed.ts']; // datos de ejemplo (color de avatar inicial)
+const ALLOW: string[] = []; // datos de ejemplo (color de avatar inicial)
 
 test('la app usa el design system solo a través de su punto de entrada', () => {
   const problems = files(SRC).filter((f) => !ALLOW.some((a) => f.endsWith(a))).flatMap((f) =>

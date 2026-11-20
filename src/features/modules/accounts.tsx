@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { Share } from 'react-native';
 import * as L from '../../store/logic';
+import { cmd } from '../../store/commands';
 import { useBank } from '../../store/BankContext';
 import type { Account, Category, Currency, Transaction } from '../../store/types';
 import {
@@ -94,8 +95,8 @@ export function AccountDetail({ accountId }: { accountId?: string }) {
       <Card>
         <Text variant="heading">Personalizar</Text>
         <Input label="Nuevo alias" value={alias} onChangeText={setAlias} placeholder={acc.alias} />
-        <Button title="Renombrar" variant="secondary" onPress={() => { if (exec((s) => L.renameAccount(s, acc.id, alias), 'Alias actualizado.')) setAlias(''); }} />
-        {!acc.isPrimary ? <Button title="Marcar como principal" variant="ghost" icon="star-outline" onPress={() => exec((s) => L.setPrimaryAccount(s, acc.id), 'Cuenta principal actualizada.')} /> : null}
+        <Button title="Renombrar" variant="secondary" onPress={async () => { if (await exec(cmd.renameAccount(acc.id, alias), 'Alias actualizado.')) setAlias(''); }} />
+        {!acc.isPrimary ? <Button title="Marcar como principal" variant="ghost" icon="star-outline" onPress={() => exec(cmd.setPrimaryAccount(acc.id), 'Cuenta principal actualizada.')} /> : null}
         {feedback}
       </Card>
       <Card>
@@ -141,7 +142,7 @@ function OpenAccount() {
         <Input label="Alias" value={alias} onChangeText={setAlias} placeholder="Ej: Ahorro auto" />
         <Text variant="caption" tone="muted">Sin costo de mantenimiento. Al abrirla aceptás los términos y condiciones vigentes.</Text>
         {feedback}
-        <Button title="Abrir cuenta" onPress={() => { if (exec((s) => L.openAccount(s, type, cur, alias), '¡Cuenta abierta! Ya podés usarla.')) setAlias(''); }} />
+        <Button title="Abrir cuenta" onPress={async () => { if (await exec(cmd.openAccount(type, cur, alias), '¡Cuenta abierta! Ya podés usarla.')) setAlias(''); }} />
       </Card>
     </Screen>
   );
@@ -155,7 +156,7 @@ function RenameAccount() {
       <AccountPicker value={id} onChange={setId} />
       <Input label="Nuevo alias (3-24 caracteres)" value={alias} onChangeText={setAlias} />
       {feedback}
-      <Button title="Guardar alias" onPress={() => { if (id && exec((s) => L.renameAccount(s, id, alias), 'Alias actualizado.')) setAlias(''); }} />
+      <Button title="Guardar alias" onPress={async () => { if (id && await exec(cmd.renameAccount(id, alias), 'Alias actualizado.')) setAlias(''); }} />
     </Card></Screen>
   );
 }
@@ -167,7 +168,7 @@ function PrimaryAccount() {
     <Screen><Card>
       <Text variant="heading">Cuenta principal</Text>
       <Text tone="muted" variant="bodySmall">Se usa por defecto en pagos, transferencias y para acreditar ingresos.</Text>
-      <AccountPicker label="Elegí tu cuenta principal" value={state.accounts.find((a) => a.isPrimary)?.id} onChange={(id) => exec((s) => L.setPrimaryAccount(s, id), 'Cuenta principal actualizada.')} />
+      <AccountPicker label="Elegí tu cuenta principal" value={state.accounts.find((a) => a.isPrimary)?.id} onChange={(id) => exec(cmd.setPrimaryAccount(id), 'Cuenta principal actualizada.')} />
       {feedback}
     </Card></Screen>
   );
@@ -184,7 +185,7 @@ function CloseAccount() {
       <Text tone="muted" variant="bodySmall">La cuenta debe tener saldo cero, no ser la principal y no tener tarjetas activas.</Text>
       <AccountPicker value={id} onChange={setId} />
       {feedback}
-      {acc ? <ConfirmButton title={`Cerrar ${acc.alias}`} variant="danger" onConfirm={() => exec((s) => L.closeAccount(s, acc.id), 'Cuenta cerrada.')} /> : null}
+      {acc ? <ConfirmButton title={`Cerrar ${acc.alias}`} variant="danger" onConfirm={() => exec(cmd.closeAccount(acc.id), 'Cuenta cerrada.')} /> : null}
     </Card></Screen>
   );
 }
@@ -288,12 +289,12 @@ export function TxDetail({ txId }: { txId?: string }) {
       </Card>
       <Card>
         <Text variant="heading">Categoría</Text>
-        <Chips options={CATEGORIES.map((c) => ({ label: c, value: c }))} value={tx.category} onChange={(c) => exec((s) => L.setTxCategory(s, tx.id, c), `Recategorizado como ${c}.`)} />
+        <Chips options={CATEGORIES.map((c) => ({ label: c, value: c }))} value={tx.category} onChange={(c) => exec(cmd.setTxCategory(tx.id, c), `Recategorizado como ${c}.`)} />
       </Card>
       <Card>
         <Text variant="heading">Nota</Text>
         <Input value={note} onChangeText={setNote} placeholder="Ej: regalo de cumpleaños" maxLength={140} />
-        <Button title="Guardar nota" variant="secondary" onPress={() => exec((s) => L.setTxNote(s, tx.id, note), 'Nota guardada.')} />
+        <Button title="Guardar nota" variant="secondary" onPress={() => exec(cmd.setTxNote(tx.id, note), 'Nota guardada.')} />
       </Card>
       {feedback}
       <Button title="Compartir comprobante" icon="share-outline" onPress={() => Share.share({ message: receipt }).catch(() => {})} />

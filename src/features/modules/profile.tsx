@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Linking, Platform, ScrollView, Share } from 'react-native';
 import * as L from '../../store/logic';
+import { cmd } from '../../store/commands';
 import { useBank } from '../../store/BankContext';
 import type { AppNotification, Currency } from '../../store/types';
 import {
@@ -22,14 +23,14 @@ function NotificationCenter() {
   return (
     <Screen>
       <Chips options={[{ label: 'Todas', value: 'todas' as const }, ...(Object.keys(kindIcon) as AppNotification['kind'][]).map((k) => ({ label: k, value: k }))]} value={kind} onChange={setKind} />
-      {unread ? <Button small title={`Marcar ${unread} como leídas`} variant="secondary" onPress={() => run((s) => L.markNotification(s, 'all'))} /> : null}
+      {unread ? <Button small title={`Marcar ${unread} como leídas`} variant="secondary" onPress={() => run(cmd.markNotification('all'))} /> : null}
       <Card>
         {list.length === 0 ? <EmptyState text="Sin notificaciones" icon="notifications-off-outline" /> : list.slice(0, 80).map((n) => (
           <Inline key={n.id} align="center">
             <Stack flex>
-              <ListItem icon={kindIcon[n.kind]} title={`${n.read ? '' : '● '}${n.title}`} subtitle={`${n.body}\n${date(n.date, true)}`} onPress={() => run((s) => L.markNotification(s, n.id))} />
+              <ListItem icon={kindIcon[n.kind]} title={`${n.read ? '' : '● '}${n.title}`} subtitle={`${n.body}\n${date(n.date, true)}`} onPress={() => run(cmd.markNotification(n.id))} />
             </Stack>
-            <Button small title="✕" variant="ghost" onPress={() => run((s) => L.deleteNotification(s, n.id))} />
+            <Button small title="✕" variant="ghost" onPress={() => run(cmd.deleteNotification(n.id))} />
           </Inline>
         ))}
       </Card>
@@ -46,7 +47,7 @@ function NotifPrefs() {
           <Text variant="heading">{k[0].toUpperCase() + k.slice(1)}</Text>
           {(['push', 'email', 'sms'] as const).map((ch) => (
             <ToggleRow key={ch} title={ch === 'push' ? 'Push' : ch === 'email' ? 'Email' : 'SMS'} value={state.settings.notifPrefs[k][ch]}
-              onChange={(v) => run((s) => L.mut(s, (d) => { d.settings.notifPrefs[k][ch] = v; }))} />
+              onChange={(v) => run(cmd.setNotificationPref(k, ch, v))} />
           ))}
           {k === 'seguridad' ? <Text variant="caption" tone="muted">Las alertas de seguridad por push no pueden desactivarse completamente por tu protección.</Text> : null}
         </Card>
@@ -66,7 +67,7 @@ function ThresholdAlert({ field, title, hint }: { field: 'lowBalanceThreshold' |
       <KeyValue k="Valor actual" v={money(state.settings[field])} />
       <Input label="Nuevo umbral" value={v} onChangeText={setV} keyboardType="decimal-pad" />
       {feedback}
-      <Button title="Guardar" onPress={() => exec((s) => L.mut(s, (d) => { const n = parseAmount(v); if (!(n >= 0)) throw new L.BankError('monto_invalido'); d.settings[field] = n; }), 'Alerta actualizada.')} />
+      <Button title="Guardar" onPress={() => exec(cmd.setAlertThreshold(field, parseAmount(v)), 'Alerta actualizada.')} />
     </Card></Screen>
   );
 }
@@ -78,7 +79,7 @@ function Inbox() {
     <Screen>
       {state.inbox.map((m) => (
         <Card key={m.id}>
-          <ListItem icon={m.read ? 'mail-open-outline' : 'mail-unread-outline'} title={m.subject} subtitle={date(m.date)} onPress={() => { setOpen(open === m.id ? null : m.id); run((s) => L.readMessage(s, m.id)); }} />
+          <ListItem icon={m.read ? 'mail-open-outline' : 'mail-unread-outline'} title={m.subject} subtitle={date(m.date)} onPress={() => { setOpen(open === m.id ? null : m.id); run(cmd.readMessage(m.id)); }} />
           {open === m.id ? <Text>{m.body}</Text> : null}
         </Card>
       ))}
@@ -96,7 +97,7 @@ function Offers() {
         <Card key={o.id}>
           <Text variant="heading">{o.title}</Text>
           <Text tone="muted">{o.description}</Text>
-          {o.accepted ? <Banner kind="success" text="Oferta activada" /> : <Button small title="Activar oferta" onPress={() => exec((s) => L.acceptOffer(s, o.id), '¡Oferta activada!')} />}
+          {o.accepted ? <Banner kind="success" text="Oferta activada" /> : <Button small title="Activar oferta" onPress={() => exec(cmd.acceptOffer(o.id), '¡Oferta activada!')} />}
         </Card>
       ))}
     </Screen>
@@ -122,7 +123,7 @@ function Profile() {
         <Inline gap="sm" justify="center" wrap>
           {avatarColors.map((c, i) => (
             <Swatch key={c} color={c} selected={state.user.avatarColor === c} accessibilityLabel={`Color de avatar ${i + 1}`}
-              onPress={() => run((s) => L.mut(s, (d) => { d.user.avatarColor = c; }))} />
+              onPress={() => run(cmd.setAvatarColor(c))} />
           ))}
         </Inline>
       </Card>
@@ -134,7 +135,7 @@ function Profile() {
         <KeyValue k="Documento" v={state.user.documentId} />
         <KeyValue k="Fecha de nacimiento" v={date(state.user.birthDate)} />
         {feedback}
-        <Button title="Guardar cambios" onPress={() => exec((s) => L.updateProfile(s, f), 'Perfil actualizado.')} />
+        <Button title="Guardar cambios" onPress={() => exec(cmd.updateProfile(f), 'Perfil actualizado.')} />
       </Card>
     </Screen>
   );
@@ -145,7 +146,7 @@ function SettingChips<V extends string>({ title, field, options }: { title: stri
   return (
     <Screen><Card>
       <Text variant="heading">{title}</Text>
-      <Chips options={options} value={state.settings[field] as V} onChange={(v) => run((s) => L.mut(s, (d) => { (d.settings as unknown as Record<string, string>)[field] = v; }))} />
+      <Chips options={options} value={state.settings[field] as V} onChange={(v) => run(cmd.updatePreferences({ [field]: v } as L.PreferencePatch))} />
     </Card></Screen>
   );
 }
@@ -187,7 +188,7 @@ function Rewards() {
       {state.rewards.map((r) => (
         <Card key={r.id}>
           <ListItem icon="gift-outline" title={r.name} right={`${r.points} pts`} />
-          <Button small title="Canjear" disabled={state.user.points < r.points} onPress={() => exec((s) => L.redeemReward(s, r.id, acc!), `Canjeaste ${r.name}.`)} />
+          <Button small title="Canjear" disabled={state.user.points < r.points} onPress={() => exec(cmd.redeemReward(r.id, acc!), `Canjeaste ${r.name}.`)} />
         </Card>
       ))}
     </Screen>
@@ -210,7 +211,7 @@ function Referrals() {
         <Text variant="heading">Registrar invitado</Text>
         <Input label="Nombre" value={name} onChangeText={setName} />
         {feedback}
-        <Button title="Registrar (+500 pts)" variant="secondary" onPress={() => { if (exec((s) => L.addReferral(s, name), '¡Sumaste 500 puntos!')) setName(''); }} />
+        <Button title="Registrar (+500 pts)" variant="secondary" onPress={async () => { if (await exec(cmd.addReferral(name), '¡Sumaste 500 puntos!')) setName(''); }} />
         {state.user.referrals.map((r) => <ListItem key={r} icon="person-outline" title={r} subtitle="Invitación aceptada" />)}
       </Card>
     </Screen>
@@ -290,7 +291,7 @@ function SupportTicket() {
         <Input label="Asunto" value={subject} onChangeText={setSubject} />
         <Input label="Descripción" value={desc} onChangeText={setDesc} multiline />
         {feedback}
-        <Button title="Enviar ticket" onPress={() => { if (exec((s) => L.createTicket(s, subject, cat, desc), 'Ticket creado. Respondemos en menos de 24 h.')) { setSubject(''); setDesc(''); } }} />
+        <Button title="Enviar ticket" onPress={async () => { if (await exec(cmd.createTicket(subject, cat, desc), 'Ticket creado. Respondemos en menos de 24 h.')) { setSubject(''); setDesc(''); } }} />
       </Card>
       <Card>
         <Text variant="heading">Mis tickets</Text>
@@ -338,14 +339,14 @@ function EmergencyContacts() {
         {state.emergencyContacts.map((c) => (
           <Inline key={c.id} align="center">
             <Stack flex><ListItem icon="person-outline" title={`${c.name} (${c.relation})`} subtitle={c.phone} onPress={() => Linking.openURL(`tel:${c.phone}`).catch(() => {})} /></Stack>
-            <ConfirmButton small title="✕" variant="ghost" confirmText="¿Quitar?" onConfirm={() => exec((s) => L.removeEmergencyContact(s, c.id), 'Contacto eliminado.')} />
+            <ConfirmButton small title="✕" variant="ghost" confirmText="¿Quitar?" onConfirm={() => exec(cmd.removeEmergencyContact(c.id), 'Contacto eliminado.')} />
           </Inline>
         ))}
         <Input label="Nombre" value={name} onChangeText={setName} />
         <Input label="Teléfono" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
         <Input label="Relación" value={rel} onChangeText={setRel} placeholder="Familiar, amigo…" />
         {feedback}
-        <Button title="Agregar contacto" variant="secondary" onPress={() => { if (exec((s) => L.addEmergencyContact(s, name, phone, rel), 'Contacto agregado.')) { setName(''); setPhone(''); setRel(''); } }} />
+        <Button title="Agregar contacto" variant="secondary" onPress={async () => { if (await exec(cmd.addEmergencyContact(name, phone, rel), 'Contacto agregado.')) { setName(''); setPhone(''); setRel(''); } }} />
       </Card>
     </Screen>
   );

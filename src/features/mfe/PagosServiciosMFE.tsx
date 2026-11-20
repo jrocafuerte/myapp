@@ -11,7 +11,7 @@ import { envelope, mfeUrl, parseMfeMessage, type HostMessage, type RouteKey } fr
 import { useBank } from '../../store/BankContext';
 import { Button, EmptyState, Spinner, Stack, Text, useTheme } from '../../ui/kit';
 import { EmbeddedView, type EmbeddedHandle } from './EmbeddedView';
-import { buildContext, execute, themeSnapshot } from './pagosHost';
+import { buildContext, receiptFrom, themeSnapshot, toCommand } from './pagosHost';
 
 /** URL donde está publicado el micro frontend. En desarrollo: `npm run dev` dentro de mfe/pagos-servicios. */
 export const PAGOS_MFE_URL = process.env.EXPO_PUBLIC_PAGOS_MFE_URL ?? 'http://localhost:3001';
@@ -20,7 +20,9 @@ const LOAD_TIMEOUT_MS = 15000;
 type Status = 'loading' | 'ready' | 'error';
 
 export function PagosServiciosMFE({ route, fallbackTitle }: { route: RouteKey; fallbackTitle: string }) {
-  const { state, run, touch } = useBank();
+  const { state, runCommand, touch } = useBank();
+  const stateRef = useRef(state);
+  stateRef.current = state;
   const theme = useTheme();
   const view = useRef<EmbeddedHandle>(null);
   const [status, setStatus] = useState<Status>('loading');
@@ -61,10 +63,12 @@ export function PagosServiciosMFE({ route, fallbackTitle }: { route: RouteKey; f
         break;
       case 'request': {
         const { requestId, op } = msg.payload;
-        let receipt: ReturnType<typeof execute>['receipt'];
-        const error = run((s) => { const r = execute(s, op); receipt = r.receipt; return r.state; });
-        Haptics.notificationAsync(error ? Haptics.NotificationFeedbackType.Error : Haptics.NotificationFeedbackType.Success).catch(() => {});
-        send({ type: 'response', payload: error ? { requestId, ok: false, error } : { requestId, ok: true, receipt } });
+        const before = stateRef.current;
+        runCommand(toCommand(op)).then(({ error, state: after }) => {
+          const receipt = error ? undefined : receiptFrom(before, after, op);
+          Haptics.notificationAsync(error ? Haptics.NotificationFeedbackType.Error : Haptics.NotificationFeedbackType.Success).catch(() => {});
+          send({ type: 'response', payload: error ? { requestId, ok: false, error } : { requestId, ok: true, receipt } });
+        });
         break;
       }
       case 'title': setTitle(msg.payload.title); break;
@@ -75,7 +79,7 @@ export function PagosServiciosMFE({ route, fallbackTitle }: { route: RouteKey; f
       case 'share': Share.share({ message: msg.payload.message }).catch(() => {}); break;
       case 'close': if (router.canGoBack()) router.back(); break;
     }
-  }, [run, send, touch]);
+  }, [runCommand, send, touch]);
 
   // Botón atrás de Android: primero navega dentro del micro frontend; en su raíz, cierra la pantalla.
   useFocusEffect(useCallback(() => {
