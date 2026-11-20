@@ -4,7 +4,6 @@ import { AppState, useColorScheme } from 'react-native';
 import { BankError, matureDeposits, processBills, runScheduled, tickMarket } from './logic';
 import { createSeed } from './seed';
 import type { BankState } from './types';
-import { darkColors, lightColors, type Colors } from '../ui/theme';
 
 const STORAGE_KEY = 'banco-plus-state-v1';
 
@@ -20,7 +19,6 @@ interface Ctx {
   replace: (s: BankState) => void;
   reset: () => void;
   touch: () => void;
-  colors: Colors;
   dark: boolean;
 }
 
@@ -96,7 +94,6 @@ export function BankProvider({ children }: { children: React.ReactNode }) {
     setAuthenticated: (v) => { touch(); setAuthenticated(v); },
     replace: (s) => { stateRef.current = s; setState(s); },
     reset: () => { const s = createSeed(); stateRef.current = s; setState(s); setAuthenticated(false); },
-    colors: dark ? darkColors : lightColors,
   }), [state, ready, authenticated, run, touch, dark]);
 
   return <BankContext.Provider value={value}>{children}</BankContext.Provider>;

@@ -1,10 +1,10 @@
 import React, { useRef, useState } from 'react';
-import { Linking, Platform, Pressable, ScrollView, Share, View } from 'react-native';
+import { Linking, Platform, ScrollView, Share } from 'react-native';
 import * as L from '../../store/logic';
 import { useBank } from '../../store/BankContext';
 import type { AppNotification, Currency } from '../../store/types';
 import {
-  AccountPicker, Banner, Button, Card, Chips, ConfirmButton, Empty, H, Input, KV, Row, Screen, T, ToggleRow, useAction,
+  AccountPicker, Avatar, avatarColors, Banner, Button, Card, Chips, ConfirmButton, EmptyState, Inline, Input, KeyValue, ListItem, Screen, Stack, Surface, Swatch, Text, ToggleRow, useAction, useTheme,
 } from '../../ui/kit';
 import { date, money, parseAmount } from '../../utils/format';
 import type { Feature } from '../types';
@@ -24,13 +24,13 @@ function NotificationCenter() {
       <Chips options={[{ label: 'Todas', value: 'todas' as const }, ...(Object.keys(kindIcon) as AppNotification['kind'][]).map((k) => ({ label: k, value: k }))]} value={kind} onChange={setKind} />
       {unread ? <Button small title={`Marcar ${unread} como leídas`} variant="secondary" onPress={() => run((s) => L.markNotification(s, 'all'))} /> : null}
       <Card>
-        {list.length === 0 ? <Empty text="Sin notificaciones" icon="notifications-off-outline" /> : list.slice(0, 80).map((n) => (
-          <View key={n.id} style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={{ flex: 1 }}>
-              <Row icon={kindIcon[n.kind]} title={`${n.read ? '' : '● '}${n.title}`} subtitle={`${n.body}\n${date(n.date, true)}`} onPress={() => run((s) => L.markNotification(s, n.id))} />
-            </View>
+        {list.length === 0 ? <EmptyState text="Sin notificaciones" icon="notifications-off-outline" /> : list.slice(0, 80).map((n) => (
+          <Inline key={n.id} align="center">
+            <Stack flex>
+              <ListItem icon={kindIcon[n.kind]} title={`${n.read ? '' : '● '}${n.title}`} subtitle={`${n.body}\n${date(n.date, true)}`} onPress={() => run((s) => L.markNotification(s, n.id))} />
+            </Stack>
             <Button small title="✕" variant="ghost" onPress={() => run((s) => L.deleteNotification(s, n.id))} />
-          </View>
+          </Inline>
         ))}
       </Card>
     </Screen>
@@ -43,12 +43,12 @@ function NotifPrefs() {
     <Screen>
       {(Object.keys(state.settings.notifPrefs) as AppNotification['kind'][]).map((k) => (
         <Card key={k}>
-          <H>{k[0].toUpperCase() + k.slice(1)}</H>
+          <Text variant="heading">{k[0].toUpperCase() + k.slice(1)}</Text>
           {(['push', 'email', 'sms'] as const).map((ch) => (
             <ToggleRow key={ch} title={ch === 'push' ? 'Push' : ch === 'email' ? 'Email' : 'SMS'} value={state.settings.notifPrefs[k][ch]}
               onChange={(v) => run((s) => L.mut(s, (d) => { d.settings.notifPrefs[k][ch] = v; }))} />
           ))}
-          {k === 'seguridad' ? <T size={12} muted>Las alertas de seguridad por push no pueden desactivarse completamente por tu protección.</T> : null}
+          {k === 'seguridad' ? <Text variant="caption" tone="muted">Las alertas de seguridad por push no pueden desactivarse completamente por tu protección.</Text> : null}
         </Card>
       ))}
     </Screen>
@@ -61,9 +61,9 @@ function ThresholdAlert({ field, title, hint }: { field: 'lowBalanceThreshold' |
   const [v, setV] = useState(String(state.settings[field]));
   return (
     <Screen><Card>
-      <H>{title}</H>
-      <T muted size={13}>{hint}</T>
-      <KV k="Valor actual" v={money(state.settings[field])} />
+      <Text variant="heading">{title}</Text>
+      <Text tone="muted" variant="bodySmall">{hint}</Text>
+      <KeyValue k="Valor actual" v={money(state.settings[field])} />
       <Input label="Nuevo umbral" value={v} onChangeText={setV} keyboardType="decimal-pad" />
       {feedback}
       <Button title="Guardar" onPress={() => exec((s) => L.mut(s, (d) => { const n = parseAmount(v); if (!(n >= 0)) throw new L.BankError('Monto inválido.'); d.settings[field] = n; }), 'Alerta actualizada.')} />
@@ -78,8 +78,8 @@ function Inbox() {
     <Screen>
       {state.inbox.map((m) => (
         <Card key={m.id}>
-          <Row icon={m.read ? 'mail-open-outline' : 'mail-unread-outline'} title={m.subject} subtitle={date(m.date)} onPress={() => { setOpen(open === m.id ? null : m.id); run((s) => L.readMessage(s, m.id)); }} />
-          {open === m.id ? <T>{m.body}</T> : null}
+          <ListItem icon={m.read ? 'mail-open-outline' : 'mail-unread-outline'} title={m.subject} subtitle={date(m.date)} onPress={() => { setOpen(open === m.id ? null : m.id); run((s) => L.readMessage(s, m.id)); }} />
+          {open === m.id ? <Text>{m.body}</Text> : null}
         </Card>
       ))}
     </Screen>
@@ -94,8 +94,8 @@ function Offers() {
       {feedback}
       {state.offers.map((o) => (
         <Card key={o.id}>
-          <H>{o.title}</H>
-          <T muted>{o.description}</T>
+          <Text variant="heading">{o.title}</Text>
+          <Text tone="muted">{o.description}</Text>
           {o.accepted ? <Banner kind="success" text="Oferta activada" /> : <Button small title="Activar oferta" onPress={() => exec((s) => L.acceptOffer(s, o.id), '¡Oferta activada!')} />}
         </Card>
       ))}
@@ -104,11 +104,11 @@ function Offers() {
 }
 
 /* --------------------------------- Perfil -------------------------------- */
-const AVATAR_COLORS = ['#0047AB', '#1F7AE0', '#059669', '#D97706', '#DC2626', '#DB2777', '#7C3AED', '#334155'];
-export function Avatar({ size = 56 }: { size?: number }) {
+/** Avatar del usuario actual (iniciales + color elegido). */
+export function UserAvatar({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
   const { state } = useBank();
   const initials = state.user.name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
-  return <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: state.user.avatarColor, alignItems: 'center', justifyContent: 'center' }}><T color="#fff" weight="800" size={size / 2.6}>{initials}</T></View>;
+  return <Avatar initials={initials} color={state.user.avatarColor} size={size} />;
 }
 
 function Profile() {
@@ -117,22 +117,22 @@ function Profile() {
   const [f, setF] = useState({ name: state.user.name, email: state.user.email, phone: state.user.phone, address: state.user.address });
   return (
     <Screen>
-      <Card style={{ alignItems: 'center' }}>
-        <Avatar size={80} />
-        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-          {AVATAR_COLORS.map((c) => (
-            <Pressable key={c} accessibilityLabel={`Color ${c}`} onPress={() => run((s) => L.mut(s, (d) => { d.user.avatarColor = c; }))}
-              style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: c, borderWidth: state.user.avatarColor === c ? 3 : 0, borderColor: '#fff' }} />
+      <Card align="center">
+        <UserAvatar size="lg" />
+        <Inline gap="sm" justify="center" wrap>
+          {avatarColors.map((c, i) => (
+            <Swatch key={c} color={c} selected={state.user.avatarColor === c} accessibilityLabel={`Color de avatar ${i + 1}`}
+              onPress={() => run((s) => L.mut(s, (d) => { d.user.avatarColor = c; }))} />
           ))}
-        </View>
+        </Inline>
       </Card>
       <Card>
         <Input label="Nombre completo" value={f.name} onChangeText={(name) => setF({ ...f, name })} />
         <Input label="Email" value={f.email} onChangeText={(email) => setF({ ...f, email })} keyboardType="email-address" autoCapitalize="none" />
         <Input label="Teléfono" value={f.phone} onChangeText={(phone) => setF({ ...f, phone })} keyboardType="phone-pad" />
         <Input label="Dirección" value={f.address} onChangeText={(address) => setF({ ...f, address })} />
-        <KV k="Documento" v={state.user.documentId} />
-        <KV k="Fecha de nacimiento" v={date(state.user.birthDate)} />
+        <KeyValue k="Documento" v={state.user.documentId} />
+        <KeyValue k="Fecha de nacimiento" v={date(state.user.birthDate)} />
         {feedback}
         <Button title="Guardar cambios" onPress={() => exec((s) => L.updateProfile(s, f), 'Perfil actualizado.')} />
       </Card>
@@ -144,7 +144,7 @@ function SettingChips<V extends string>({ title, field, options }: { title: stri
   const { state, run } = useBank();
   return (
     <Screen><Card>
-      <H>{title}</H>
+      <Text variant="heading">{title}</Text>
       <Chips options={options} value={state.settings[field] as V} onChange={(v) => run((s) => L.mut(s, (d) => { (d.settings as unknown as Record<string, string>)[field] = v; }))} />
     </Card></Screen>
   );
@@ -163,7 +163,7 @@ function Documents() {
     <Screen>
       {docs.map((d) => (
         <Card key={d.t}>
-          <Row icon="document-text-outline" title={d.t} subtitle={d.b} />
+          <ListItem icon="document-text-outline" title={d.t} subtitle={d.b} />
           <Button small title="Compartir" variant="secondary" icon="share-outline" onPress={() => Share.share({ message: `${d.t}\n\n${d.b}` }).catch(() => {})} />
         </Card>
       ))}
@@ -177,16 +177,16 @@ function Rewards() {
   const [acc, setAcc] = useState(state.accounts.find((a) => a.isPrimary)?.id);
   return (
     <Screen>
-      <Card style={{ alignItems: 'center' }}>
-        <T muted>Tus puntos</T>
-        <T size={36} weight="800">{state.user.points.toLocaleString('es')}</T>
-        <T size={12} muted center>Sumás 1 punto por dólar en compras con tarjeta y QR, y 0.5 en pagos de servicios.</T>
+      <Card align="center">
+        <Text tone="muted">Tus puntos</Text>
+        <Text variant="display" weight="heavy">{state.user.points.toLocaleString('es')}</Text>
+        <Text variant="caption" tone="muted" align="center">Sumás 1 punto por dólar en compras con tarjeta y QR, y 0.5 en pagos de servicios.</Text>
       </Card>
       <AccountPicker label="Acreditar créditos en" value={acc} onChange={setAcc} />
       {feedback}
       {state.rewards.map((r) => (
         <Card key={r.id}>
-          <Row icon="gift-outline" title={r.name} right={`${r.points} pts`} />
+          <ListItem icon="gift-outline" title={r.name} right={`${r.points} pts`} />
           <Button small title="Canjear" disabled={state.user.points < r.points} onPress={() => exec((s) => L.redeemReward(s, r.id, acc!), `Canjeaste ${r.name}.`)} />
         </Card>
       ))}
@@ -201,17 +201,17 @@ function Referrals() {
   const msg = `Abrí tu cuenta en Banco Plus con mi código ${state.user.referralCode} y ganá 500 puntos 🎁`;
   return (
     <Screen>
-      <Card style={{ alignItems: 'center' }}>
-        <T muted>Tu código</T>
-        <T size={28} weight="800" selectable>{state.user.referralCode}</T>
+      <Card align="center">
+        <Text tone="muted">Tu código</Text>
+        <Text variant="title" weight="heavy" selectable>{state.user.referralCode}</Text>
         <Button title="Compartir invitación" icon="share-social-outline" onPress={() => Share.share({ message: msg }).catch(() => {})} />
       </Card>
       <Card>
-        <H>Registrar invitado</H>
+        <Text variant="heading">Registrar invitado</Text>
         <Input label="Nombre" value={name} onChangeText={setName} />
         {feedback}
         <Button title="Registrar (+500 pts)" variant="secondary" onPress={() => { if (exec((s) => L.addReferral(s, name), '¡Sumaste 500 puntos!')) setName(''); }} />
-        {state.user.referrals.map((r) => <Row key={r} icon="person-outline" title={r} subtitle="Invitación aceptada" />)}
+        {state.user.referrals.map((r) => <ListItem key={r} icon="person-outline" title={r} subtitle="Invitación aceptada" />)}
       </Card>
     </Screen>
   );
@@ -232,10 +232,10 @@ function HelpFaq() {
   return (
     <Screen>
       <Input placeholder="Buscar en la ayuda" value={q} onChangeText={setQ} />
-      {list.length === 0 ? <Empty text="Sin resultados. Probá el asistente virtual." /> : list.map((f, i) => (
+      {list.length === 0 ? <EmptyState text="Sin resultados. Probá el asistente virtual." /> : list.map((f, i) => (
         <Card key={f.q}>
-          <Row icon="help-circle-outline" title={f.q} onPress={() => setOpen(open === i ? null : i)} />
-          {open === i ? <T>{f.a}</T> : null}
+          <ListItem icon="help-circle-outline" title={f.q} onPress={() => setOpen(open === i ? null : i)} />
+          {open === i ? <Text>{f.a}</Text> : null}
         </Card>
       ))}
     </Screen>
@@ -243,7 +243,8 @@ function HelpFaq() {
 }
 
 function Chatbot() {
-  const { state, colors } = useBank();
+  const { state } = useBank();
+  const { colors } = useTheme();
   const [msgs, setMsgs] = useState<{ me: boolean; text: string }[]>([{ me: false, text: L.assistantReply(state, 'hola') }]);
   const [text, setText] = useState('');
   const scroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
@@ -254,24 +255,26 @@ function Chatbot() {
     setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 50);
   };
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <ScrollView ref={scroll} contentContainerStyle={{ padding: 16, gap: 8 }}>
-        {msgs.map((m, i) => (
-          <View key={i} style={{ alignSelf: m.me ? 'flex-end' : 'flex-start', maxWidth: '85%', backgroundColor: m.me ? colors.primary : colors.card, borderRadius: 14, padding: 12, borderWidth: m.me ? 0 : 1, borderColor: colors.border }}>
-            <T color={m.me ? colors.primaryText : undefined}>{m.text}</T>
-          </View>
-        ))}
+    <Stack flex background="bg">
+      <ScrollView ref={scroll} style={{ backgroundColor: colors.bg }}>
+        <Stack padding="lg" gap="sm">
+          {msgs.map((m, i) => (
+            <Surface key={i} alignSelf={m.me ? 'end' : 'start'} maxWidth="85%" background={m.me ? 'primary' : 'card'} bordered={!m.me} radius="md" padding="md">
+              <Text tone={m.me ? 'onPrimary' : 'default'}>{m.text}</Text>
+            </Surface>
+          ))}
+        </Stack>
       </ScrollView>
-      <View style={{ padding: 12, gap: 8, borderTopWidth: 1, borderColor: colors.border, backgroundColor: colors.card }}>
-        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+      <Surface padding="md" gap="sm" background="card" bordered radius="none">
+        <Inline gap="sm" wrap>
           {['¿Cuál es mi saldo?', '¿En qué gasto más?', 'Próximo vencimiento', 'Hablar con un asesor'].map((s) => <Button key={s} small variant="secondary" title={s} onPress={() => send(s)} />)}
-        </View>
-        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-          <View style={{ flex: 1 }}><Input value={text} onChangeText={setText} placeholder="Escribí tu consulta" onSubmitEditing={() => send()} returnKeyType="send" /></View>
+        </Inline>
+        <Inline gap="sm" align="center">
+          <Stack flex><Input value={text} onChangeText={setText} placeholder="Escribí tu consulta" onSubmitEditing={() => send()} returnKeyType="send" /></Stack>
           <Button small title="Enviar" icon="send" onPress={() => send()} />
-        </View>
-      </View>
-    </View>
+        </Inline>
+      </Surface>
+    </Stack>
   );
 }
 
@@ -282,7 +285,7 @@ function SupportTicket() {
   return (
     <Screen>
       <Card>
-        <H>Nuevo ticket</H>
+        <Text variant="heading">Nuevo ticket</Text>
         <Chips label="Categoría" options={['Tarjetas', 'Transferencias', 'Cuentas', 'Fraude', 'App', 'Otro'].map((c) => ({ label: c, value: c }))} value={cat} onChange={setCat} />
         <Input label="Asunto" value={subject} onChangeText={setSubject} />
         <Input label="Descripción" value={desc} onChangeText={setDesc} multiline />
@@ -290,8 +293,8 @@ function SupportTicket() {
         <Button title="Enviar ticket" onPress={() => { if (exec((s) => L.createTicket(s, subject, cat, desc), 'Ticket creado. Respondemos en menos de 24 h.')) { setSubject(''); setDesc(''); } }} />
       </Card>
       <Card>
-        <H>Mis tickets</H>
-        {state.tickets.length === 0 ? <Empty text="Sin tickets" /> : state.tickets.map((t) => <Row key={t.id} icon="chatbubbles-outline" title={`${t.id} · ${t.subject}`} subtitle={`${t.category} · ${date(t.date)} · ${t.status}`} />)}
+        <Text variant="heading">Mis tickets</Text>
+        {state.tickets.length === 0 ? <EmptyState text="Sin tickets" /> : state.tickets.map((t) => <ListItem key={t.id} icon="chatbubbles-outline" title={`${t.id} · ${t.subject}`} subtitle={`${t.category} · ${date(t.date)} · ${t.status}`} />)}
       </Card>
     </Screen>
   );
@@ -311,7 +314,7 @@ function BranchLocator() {
       <Chips options={[{ label: 'Todos', value: 'todos' as const }, { label: 'Sucursales', value: 'sucursal' as const }, { label: 'Cajeros', value: 'cajero' as const }]} value={type} onChange={setType} />
       {BRANCHES.filter((b) => type === 'todos' || b.type === type).map((b) => (
         <Card key={b.name}>
-          <Row icon={b.type === 'cajero' ? 'cash-outline' : 'business-outline'} title={b.name} subtitle={`${b.address}\n${b.hours}`} right={`${b.km} km`} />
+          <ListItem icon={b.type === 'cajero' ? 'cash-outline' : 'business-outline'} title={b.name} subtitle={`${b.address}\n${b.hours}`} right={`${b.km} km`} />
           <Button small title="Cómo llegar" icon="navigate-outline" variant="secondary" onPress={() => Linking.openURL(Platform.OS === 'ios' ? `maps://?q=${encodeURIComponent(b.name)}&ll=${b.lat},${b.lng}` : `https://www.google.com/maps/search/?api=1&query=${b.lat},${b.lng}`).catch(() => {})} />
         </Card>
       ))}
@@ -326,17 +329,17 @@ function EmergencyContacts() {
   return (
     <Screen>
       <Card>
-        <H>Líneas del banco</H>
-        <Row icon="call-outline" title="Robo o pérdida de tarjetas (24 h)" subtitle="0800-222-7777" onPress={() => Linking.openURL('tel:08002227777').catch(() => {})} />
-        <Row icon="call-outline" title="Atención al cliente" subtitle="0800-BANCO-PLUS" onPress={() => Linking.openURL('tel:08002262675').catch(() => {})} />
+        <Text variant="heading">Líneas del banco</Text>
+        <ListItem icon="call-outline" title="Robo o pérdida de tarjetas (24 h)" subtitle="0800-222-7777" onPress={() => Linking.openURL('tel:08002227777').catch(() => {})} />
+        <ListItem icon="call-outline" title="Atención al cliente" subtitle="0800-BANCO-PLUS" onPress={() => Linking.openURL('tel:08002262675').catch(() => {})} />
       </Card>
       <Card>
-        <H>Mis contactos de emergencia</H>
+        <Text variant="heading">Mis contactos de emergencia</Text>
         {state.emergencyContacts.map((c) => (
-          <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={{ flex: 1 }}><Row icon="person-outline" title={`${c.name} (${c.relation})`} subtitle={c.phone} onPress={() => Linking.openURL(`tel:${c.phone}`).catch(() => {})} /></View>
+          <Inline key={c.id} align="center">
+            <Stack flex><ListItem icon="person-outline" title={`${c.name} (${c.relation})`} subtitle={c.phone} onPress={() => Linking.openURL(`tel:${c.phone}`).catch(() => {})} /></Stack>
             <ConfirmButton small title="✕" variant="ghost" confirmText="¿Quitar?" onConfirm={() => exec((s) => L.removeEmergencyContact(s, c.id), 'Contacto eliminado.')} />
-          </View>
+          </Inline>
         ))}
         <Input label="Nombre" value={name} onChangeText={setName} />
         <Input label="Teléfono" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />

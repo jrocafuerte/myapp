@@ -1,12 +1,12 @@
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { Share, View } from 'react-native';
+import { Share } from 'react-native';
 import * as L from '../../store/logic';
 import { useBank } from '../../store/BankContext';
 import type { Account, Category, Currency, Transaction } from '../../store/types';
 import {
-  AccountPicker, Banner, Bars, Button, Card, Chips, ConfirmButton, Empty, H, Input, KV, Row, Screen, Stat, T, useAction,
+  AccountPicker, Banner, BarList, Button, Card, Chips, ConfirmButton, EmptyState, Inline, Input, KeyValue, ListItem, Screen, Stack, Stat, Text, useAction,
 } from '../../ui/kit';
 import { date, money, monthLabel } from '../../utils/format';
 import type { Feature } from '../types';
@@ -30,22 +30,22 @@ function BalanceSummary() {
   return (
     <Screen>
       <Card>
-        <T muted>Patrimonio neto estimado</T>
-        <T size={30} weight="800">{money(cash + L.convert(p.total + goals - debt, 'USD', cur), cur, { hidden })}</T>
-        <View style={{ flexDirection: 'row' }}>
+        <Text tone="muted">Patrimonio neto estimado</Text>
+        <Text variant="title" weight="heavy">{money(cash + L.convert(p.total + goals - debt, 'USD', cur), cur, { hidden })}</Text>
+        <Inline>
           <Stat label="Cuentas" value={money(cash, cur, { hidden })} />
           <Stat label="Inversiones" value={money(L.convert(p.total, 'USD', cur), cur, { hidden })} />
-        </View>
-        <View style={{ flexDirection: 'row' }}>
+        </Inline>
+        <Inline>
           <Stat label="Metas de ahorro" value={money(L.convert(goals, 'USD', cur), cur, { hidden })} />
           <Stat label="Deudas" value={money(-L.convert(debt, 'USD', cur), cur, { hidden })} />
-        </View>
+        </Inline>
       </Card>
       <Card>
-        <H>Por moneda</H>
+        <Text variant="heading">Por moneda</Text>
         {(['USD', 'EUR', 'GBP'] as Currency[]).map((c) => {
           const sum = active.filter((a) => a.currency === c).reduce((t, a) => t + a.balance, 0);
-          return sum ? <KV key={c} k={c} v={money(sum, c, { hidden })} /> : null;
+          return sum ? <KeyValue key={c} k={c} v={money(sum, c, { hidden })} /> : null;
         })}
       </Card>
     </Screen>
@@ -58,7 +58,7 @@ export function AccountsList() {
     <Screen>
       {state.accounts.filter((a) => !a.closed).map((a) => (
         <Card key={a.id}>
-          <Row icon={a.currency === 'USD' ? 'logo-usd' : a.currency === 'EUR' ? 'logo-euro' : 'cash-outline'} title={`${a.alias}${a.isPrimary ? ' ★' : ''}`}
+          <ListItem icon={a.currency === 'USD' ? 'logo-usd' : a.currency === 'EUR' ? 'logo-euro' : 'cash-outline'} title={`${a.alias}${a.isPrimary ? ' ★' : ''}`}
             subtitle={`${typeLabel[a.type]} · ${a.number}`} right={money(a.balance, a.currency, { hidden: state.settings.hideBalances })}
             onPress={() => router.push(`/cuenta/${a.id}`)} />
         </Card>
@@ -76,31 +76,31 @@ export function AccountDetail({ accountId }: { accountId?: string }) {
   const acc = state.accounts.find((a) => a.id === id);
   const { exec, feedback } = useAction();
   const [alias, setAlias] = useState('');
-  if (!acc) return <Screen><Empty text="Cuenta no encontrada" /></Screen>;
+  if (!acc) return <Screen><EmptyState text="Cuenta no encontrada" /></Screen>;
   const txs = state.transactions.filter((t) => t.accountId === acc.id).slice(0, 8);
   return (
     <Screen>
       {!accountId ? <AccountPicker value={id} onChange={setId} /> : null}
       <Card>
-        <T muted>{typeLabel[acc.type]} · {acc.currency}</T>
-        <T size={28} weight="800">{money(acc.balance, acc.currency, { hidden: state.settings.hideBalances })}</T>
-        <KV k="Alias" v={acc.alias} />
-        <KV k="Número" v={acc.number} selectable />
-        <KV k="Código interbancario" v={acc.interbankCode} selectable />
-        <KV k="Apertura" v={date(acc.createdAt)} />
-        <KV k="Principal" v={acc.isPrimary ? 'Sí' : 'No'} />
+        <Text tone="muted">{typeLabel[acc.type]} · {acc.currency}</Text>
+        <Text variant="title" weight="heavy">{money(acc.balance, acc.currency, { hidden: state.settings.hideBalances })}</Text>
+        <KeyValue k="Alias" v={acc.alias} />
+        <KeyValue k="Número" v={acc.number} selectable />
+        <KeyValue k="Código interbancario" v={acc.interbankCode} selectable />
+        <KeyValue k="Apertura" v={date(acc.createdAt)} />
+        <KeyValue k="Principal" v={acc.isPrimary ? 'Sí' : 'No'} />
       </Card>
       <ShareAccountActions account={acc} />
       <Card>
-        <H>Personalizar</H>
+        <Text variant="heading">Personalizar</Text>
         <Input label="Nuevo alias" value={alias} onChangeText={setAlias} placeholder={acc.alias} />
         <Button title="Renombrar" variant="secondary" onPress={() => { if (exec((s) => L.renameAccount(s, acc.id, alias), 'Alias actualizado.')) setAlias(''); }} />
         {!acc.isPrimary ? <Button title="Marcar como principal" variant="ghost" icon="star-outline" onPress={() => exec((s) => L.setPrimaryAccount(s, acc.id), 'Cuenta principal actualizada.')} /> : null}
         {feedback}
       </Card>
       <Card>
-        <H>Últimos movimientos</H>
-        {txs.length ? txs.map((t) => <TxRow key={t.id} tx={t} />) : <Empty text="Sin movimientos" />}
+        <Text variant="heading">Últimos movimientos</Text>
+        {txs.length ? txs.map((t) => <TxRow key={t.id} tx={t} />) : <EmptyState text="Sin movimientos" />}
       </Card>
     </Screen>
   );
@@ -112,11 +112,11 @@ function ShareAccountActions({ account }: { account: Account }) {
   const text = `Titular: ${state.user.name}\nBanco: Banco Plus\nCuenta: ${account.number}\nCódigo interbancario: ${account.interbankCode}\nMoneda: ${account.currency}\nAlias: ${account.alias}`;
   return (
     <Card>
-      <H>Compartir datos</H>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <View style={{ flex: 1 }}><Button title="Copiar" icon="copy-outline" variant="secondary" onPress={async () => { await Clipboard.setStringAsync(text); setCopied('Datos copiados al portapapeles.'); }} /></View>
-        <View style={{ flex: 1 }}><Button title="Compartir" icon="share-outline" onPress={() => Share.share({ message: text }).catch(() => {})} /></View>
-      </View>
+      <Text variant="heading">Compartir datos</Text>
+      <Inline gap="sm">
+        <Stack flex><Button title="Copiar" icon="copy-outline" variant="secondary" onPress={async () => { await Clipboard.setStringAsync(text); setCopied('Datos copiados al portapapeles.'); }} /></Stack>
+        <Stack flex><Button title="Compartir" icon="share-outline" onPress={() => Share.share({ message: text }).catch(() => {})} /></Stack>
+      </Inline>
       <Banner kind="success" text={copied} />
     </Card>
   );
@@ -135,11 +135,11 @@ function OpenAccount() {
   return (
     <Screen>
       <Card>
-        <H>Abrir una cuenta nueva</H>
+        <Text variant="heading">Abrir una cuenta nueva</Text>
         <Chips label="Tipo" options={[{ label: 'Caja de ahorro', value: 'ahorro' }, { label: 'Cuenta corriente', value: 'corriente' }]} value={type} onChange={setType} />
         <Chips label="Moneda" options={[{ label: 'Dólares (USD)', value: 'USD' }, { label: 'Euros (EUR)', value: 'EUR' }, { label: 'Libras (GBP)', value: 'GBP' }]} value={cur} onChange={setCur} />
         <Input label="Alias" value={alias} onChangeText={setAlias} placeholder="Ej: Ahorro auto" />
-        <T size={12} muted>Sin costo de mantenimiento. Al abrirla aceptás los términos y condiciones vigentes.</T>
+        <Text variant="caption" tone="muted">Sin costo de mantenimiento. Al abrirla aceptás los términos y condiciones vigentes.</Text>
         {feedback}
         <Button title="Abrir cuenta" onPress={() => { if (exec((s) => L.openAccount(s, type, cur, alias), '¡Cuenta abierta! Ya podés usarla.')) setAlias(''); }} />
       </Card>
@@ -165,8 +165,8 @@ function PrimaryAccount() {
   const { exec, feedback } = useAction();
   return (
     <Screen><Card>
-      <H>Cuenta principal</H>
-      <T muted size={13}>Se usa por defecto en pagos, transferencias y para acreditar ingresos.</T>
+      <Text variant="heading">Cuenta principal</Text>
+      <Text tone="muted" variant="bodySmall">Se usa por defecto en pagos, transferencias y para acreditar ingresos.</Text>
       <AccountPicker label="Elegí tu cuenta principal" value={state.accounts.find((a) => a.isPrimary)?.id} onChange={(id) => exec((s) => L.setPrimaryAccount(s, id), 'Cuenta principal actualizada.')} />
       {feedback}
     </Card></Screen>
@@ -180,8 +180,8 @@ function CloseAccount() {
   const acc = state.accounts.find((a) => a.id === id);
   return (
     <Screen><Card>
-      <H>Cerrar una cuenta</H>
-      <T muted size={13}>La cuenta debe tener saldo cero, no ser la principal y no tener tarjetas activas.</T>
+      <Text variant="heading">Cerrar una cuenta</Text>
+      <Text tone="muted" variant="bodySmall">La cuenta debe tener saldo cero, no ser la principal y no tener tarjetas activas.</Text>
       <AccountPicker value={id} onChange={setId} />
       {feedback}
       {acc ? <ConfirmButton title={`Cerrar ${acc.alias}`} variant="danger" onConfirm={() => exec((s) => L.closeAccount(s, acc.id), 'Cuenta cerrada.')} /> : null}
@@ -194,16 +194,16 @@ function MultiCurrency() {
   return (
     <Screen>
       <Card>
-        <H>Cotizaciones (base USD)</H>
+        <Text variant="heading">Cotizaciones (base USD)</Text>
         {(['EUR', 'GBP'] as Currency[]).map((c) => {
           const buy = L.fxQuote('USD', c).rate; const sell = L.fxQuote(c, 'USD').rate;
-          return <KV key={c} k={`1 ${c}`} v={`Compra ${(1 / buy).toFixed(4)} · Venta ${sell.toFixed(4)} USD`} />;
+          return <KeyValue key={c} k={`1 ${c}`} v={`Compra ${(1 / buy).toFixed(4)} · Venta ${sell.toFixed(4)} USD`} />;
         })}
       </Card>
       <Card>
-        <H>Tus cuentas en moneda extranjera</H>
+        <Text variant="heading">Tus cuentas en moneda extranjera</Text>
         {state.accounts.filter((a) => !a.closed && a.currency !== 'USD').map((a) => (
-          <Row key={a.id} icon="globe-outline" title={a.alias} subtitle={`≈ ${money(L.convert(a.balance, a.currency, 'USD'))}`} right={money(a.balance, a.currency, { hidden: state.settings.hideBalances })} />
+          <ListItem key={a.id} icon="globe-outline" title={a.alias} subtitle={`≈ ${money(L.convert(a.balance, a.currency, 'USD'))}`} right={money(a.balance, a.currency, { hidden: state.settings.hideBalances })} />
         ))}
         <Button title="Comprar/vender divisas" variant="secondary" onPress={() => router.push('/feature/fx-exchange')} />
         <Button title="Abrir cuenta en otra moneda" variant="ghost" onPress={() => router.push('/feature/open-account')} />
@@ -219,7 +219,7 @@ function AccountCertificate() {
   return (
     <Screen>
       <AccountPicker value={id} onChange={setId} />
-      <Card><T selectable>{text}</T></Card>
+      <Card><Text selectable>{text}</Text></Card>
       <Button title="Compartir certificado" icon="share-outline" onPress={() => Share.share({ message: text }).catch(() => {})} />
     </Screen>
   );
@@ -227,12 +227,12 @@ function AccountCertificate() {
 
 /* ------------------------------ Movimientos ------------------------------ */
 export function TxRow({ tx }: { tx: Transaction }) {
-  const { state, colors } = useBank();
+  const { state } = useBank();
   const acc = state.accounts.find((a) => a.id === tx.accountId);
   return (
-    <Row icon={tx.amount > 0 ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'} title={tx.description}
+    <ListItem icon={tx.amount > 0 ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'} title={tx.description}
       subtitle={`${date(tx.date)} · ${tx.category}${tx.note ? ' · 📝' : ''}`}
-      right={money(tx.amount, acc?.currency, { sign: true, hidden: state.settings.hideBalances })} rightColor={tx.amount > 0 ? colors.success : undefined}
+      right={money(tx.amount, acc?.currency, { sign: true, hidden: state.settings.hideBalances })} rightTone={tx.amount > 0 ? 'success' : undefined}
       onPress={() => router.push(`/movimiento/${tx.id}`)} />
   );
 }
@@ -256,9 +256,9 @@ export function MovementsBrowser({ showFilters = true, focus }: { showFilters?: 
           {focus === 'filters' ? <Chips label="Categoría" options={[{ label: 'Todas', value: '' as Category | '' }, ...CATEGORIES.map((c) => ({ label: c, value: c as Category | '' }))]} value={category ?? ''} onChange={(v) => setCategory(v || undefined)} /> : null}
         </Card>
       ) : null}
-      <T muted size={13}>{txs.length} movimientos · neto {money(total, 'USD', { sign: true, hidden: state.settings.hideBalances })}</T>
+      <Text tone="muted" variant="bodySmall">{txs.length} movimientos · neto {money(total, 'USD', { sign: true, hidden: state.settings.hideBalances })}</Text>
       <Card>
-        {txs.length ? txs.slice(0, limit).map((t) => <TxRow key={t.id} tx={t} />) : <Empty text="No hay movimientos que coincidan" icon="search-outline" />}
+        {txs.length ? txs.slice(0, limit).map((t) => <TxRow key={t.id} tx={t} />) : <EmptyState text="No hay movimientos que coincidan" icon="search-outline" />}
         {txs.length > limit ? <Button title="Ver más" variant="ghost" onPress={() => setLimit(limit + 30)} /> : null}
       </Card>
     </Screen>
@@ -271,27 +271,27 @@ export function TxDetail({ txId }: { txId?: string }) {
   const tx = state.transactions.find((t) => t.id === id);
   const { exec, feedback } = useAction();
   const [note, setNote] = useState(tx?.note ?? '');
-  if (!tx) return <Screen><Empty text="Movimiento no encontrado" /></Screen>;
+  if (!tx) return <Screen><EmptyState text="Movimiento no encontrado" /></Screen>;
   const acc = state.accounts.find((a) => a.id === tx.accountId);
   const receipt = `COMPROBANTE BANCO PLUS\n${tx.description}\nMonto: ${money(tx.amount, acc?.currency)}\nFecha: ${date(tx.date, true)}\nCuenta: ${acc?.alias} (${acc?.number})\nCategoría: ${tx.category}\nReferencia: ${tx.reference}${tx.counterpart ? `\nContraparte: ${tx.counterpart}` : ''}`;
   return (
     <Screen>
       {!txId ? <Chips label="Elegí un movimiento reciente" options={state.transactions.slice(0, 6).map((t) => ({ label: t.description.slice(0, 22), value: t.id }))} value={id} onChange={(v) => { setId(v); setNote(state.transactions.find((t) => t.id === v)?.note ?? ''); }} /> : null}
       <Card>
-        <T muted>{tx.description}</T>
-        <T size={28} weight="800">{money(tx.amount, acc?.currency, { sign: true })}</T>
-        <KV k="Fecha" v={date(tx.date, true)} />
-        <KV k="Cuenta" v={acc?.alias ?? '—'} />
-        <KV k="Tipo" v={tx.type} />
-        <KV k="Referencia" v={tx.reference} selectable />
-        {tx.counterpart ? <KV k="Contraparte" v={tx.counterpart} /> : null}
+        <Text tone="muted">{tx.description}</Text>
+        <Text variant="title" weight="heavy">{money(tx.amount, acc?.currency, { sign: true })}</Text>
+        <KeyValue k="Fecha" v={date(tx.date, true)} />
+        <KeyValue k="Cuenta" v={acc?.alias ?? '—'} />
+        <KeyValue k="Tipo" v={tx.type} />
+        <KeyValue k="Referencia" v={tx.reference} selectable />
+        {tx.counterpart ? <KeyValue k="Contraparte" v={tx.counterpart} /> : null}
       </Card>
       <Card>
-        <H>Categoría</H>
+        <Text variant="heading">Categoría</Text>
         <Chips options={CATEGORIES.map((c) => ({ label: c, value: c }))} value={tx.category} onChange={(c) => exec((s) => L.setTxCategory(s, tx.id, c), `Recategorizado como ${c}.`)} />
       </Card>
       <Card>
-        <H>Nota</H>
+        <Text variant="heading">Nota</Text>
         <Input value={note} onChangeText={setNote} placeholder="Ej: regalo de cumpleaños" maxLength={140} />
         <Button title="Guardar nota" variant="secondary" onPress={() => exec((s) => L.setTxNote(s, tx.id, note), 'Nota guardada.')} />
       </Card>
@@ -308,11 +308,11 @@ function AutoCategory() {
   return (
     <Screen>
       <Card>
-        <H>Probá la categorización automática</H>
+        <Text variant="heading">Probá la categorización automática</Text>
         <Input value={desc} onChangeText={setDesc} placeholder="Ej: Farmacia del centro" />
-        <T>Categoría detectada: <T weight="700">{desc ? L.autoCategory(desc) : '—'}</T></T>
+        <Text>Categoría detectada: <Text weight="bold">{desc ? L.autoCategory(desc) : '—'}</Text></Text>
       </Card>
-      <Card><H>Movimientos por categoría</H><Bars data={counts} /></Card>
+      <Card><Text variant="heading">Movimientos por categoría</Text><BarList data={counts} /></Card>
     </Screen>
   );
 }
@@ -322,7 +322,7 @@ function MonthlyStatement() {
   const [id, setId] = useState(usePrimary());
   const months = [...new Set(state.transactions.map((t) => t.date.slice(0, 7)))].sort().reverse().slice(0, 6);
   const [month, setMonth] = useState(months[0]);
-  if (!id || !month) return <Screen><Empty text="Sin datos" /></Screen>;
+  if (!id || !month) return <Screen><EmptyState text="Sin datos" /></Screen>;
   const st = L.monthlyStatement(state, id, month);
   const acc = state.accounts.find((a) => a.id === id)!;
   return (
@@ -330,13 +330,13 @@ function MonthlyStatement() {
       <AccountPicker value={id} onChange={setId} />
       <Chips label="Mes" options={months.map((m) => ({ label: monthLabel(m), value: m }))} value={month} onChange={setMonth} />
       <Card>
-        <H>Resumen {monthLabel(month)}</H>
-        <KV k="Saldo inicial" v={money(st.opening, acc.currency)} />
-        <KV k="Ingresos" v={money(st.income, acc.currency)} />
-        <KV k="Egresos" v={money(-st.expenses, acc.currency)} />
-        <KV k="Saldo final" v={money(st.closing, acc.currency)} />
+        <Text variant="heading">Resumen {monthLabel(month)}</Text>
+        <KeyValue k="Saldo inicial" v={money(st.opening, acc.currency)} />
+        <KeyValue k="Ingresos" v={money(st.income, acc.currency)} />
+        <KeyValue k="Egresos" v={money(-st.expenses, acc.currency)} />
+        <KeyValue k="Saldo final" v={money(st.closing, acc.currency)} />
       </Card>
-      <Card>{st.txs.length ? st.txs.map((t) => <TxRow key={t.id} tx={t} />) : <Empty text="Sin movimientos en el mes" />}</Card>
+      <Card>{st.txs.length ? st.txs.map((t) => <TxRow key={t.id} tx={t} />) : <EmptyState text="Sin movimientos en el mes" />}</Card>
     </Screen>
   );
 }
@@ -351,8 +351,8 @@ function ExportCsv() {
     <Screen>
       <Chips label="Período" options={[{ label: '30 días', value: 30 }, { label: '90 días', value: 90 }, { label: '1 año', value: 365 }]} value={range} onChange={setRange} />
       <Card>
-        <T muted size={13}>{txs.length} movimientos · vista previa</T>
-        <T size={11} selectable style={{ fontFamily: 'monospace' }}>{csv.split('\n').slice(0, 8).join('\n')}</T>
+        <Text tone="muted" variant="bodySmall">{txs.length} movimientos · vista previa</Text>
+        <Text variant="micro" selectable mono>{csv.split('\n').slice(0, 8).join('\n')}</Text>
       </Card>
       <Button title="Exportar / compartir CSV" icon="download-outline" onPress={() => Share.share({ message: csv, title: 'movimientos.csv' }).catch(() => {})} />
     </Screen>

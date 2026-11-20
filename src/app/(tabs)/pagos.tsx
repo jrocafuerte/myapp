@@ -1,6 +1,8 @@
 import React from 'react';
 import { FeatureGrid } from '../../ui/FeatureTile';
-import { Card, H, Screen } from '../../ui/kit';
+import {
+  Card, Screen, Text,
+} from '../../ui/kit';
 import { FEATURES } from '../../features/registry';
 
 const ids = (m: string) => FEATURES.filter((f) => f.module === m).map((f) => f.id);
@@ -8,8 +10,8 @@ const ids = (m: string) => FEATURES.filter((f) => f.module === m).map((f) => f.i
 export default function Payments() {
   return (
     <Screen>
-      <Card><H>Transferencias</H><FeatureGrid ids={ids('transferencias')} /></Card>
-      <Card><H>Pagos</H><FeatureGrid ids={ids('pagos')} /></Card>
+      <Card><Text variant="heading">Transferencias</Text><FeatureGrid ids={ids('transferencias')} /></Card>
+      <Card><Text variant="heading">Pagos</Text><FeatureGrid ids={ids('pagos')} /></Card>
     </Screen>
   );
 }

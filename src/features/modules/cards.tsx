@@ -1,32 +1,30 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, View } from 'react-native';
 import * as L from '../../store/logic';
 import { useBank } from '../../store/BankContext';
 import type { Card as BankCard } from '../../store/types';
 import {
-  AccountPicker, Banner, Button, Card, Chips, ConfirmButton, Empty, H, Input, KV, Progress, Screen, T, ToggleRow, useAction,
+  AccountPicker, Banner, Button, Card, Chips, ConfirmButton, EmptyState, Inline, Input, KeyValue, Progress, Screen, Surface, Text, ToggleRow, useAction,
 } from '../../ui/kit';
 import { date, groupCard, isoDay, maskCard, money, parseAmount } from '../../utils/format';
 import type { Feature } from '../types';
 
 export function CardVisual({ card, reveal, onPress }: { card: BankCard; reveal?: boolean; onPress?: () => void }) {
-  const { colors } = useBank();
-  const bg = card.status !== 'activa' ? colors.cardInactive : card.virtual ? colors.cardVirtual : card.kind === 'credito' ? colors.cardCredit : colors.cardDebit;
+  const bg = card.status !== 'activa' ? 'cardInactive' : card.virtual ? 'cardVirtual' : card.kind === 'credito' ? 'cardCredit' : 'cardDebit';
   return (
-    <Pressable onPress={onPress} disabled={!onPress} accessibilityLabel={`Tarjeta ${card.brand} terminada en ${card.number.slice(-4)}`}
-      style={{ backgroundColor: bg, borderRadius: 18, padding: 18, gap: 18, aspectRatio: 1.6, justifyContent: 'space-between' }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        <T color="#fff" weight="700">{card.kind === 'credito' ? 'Crédito' : 'Débito'}{card.virtual ? ' · Virtual' : ''}{card.oneTime ? ' · 1 uso' : ''}</T>
-        <T color="#fff" weight="800">{card.brand.toUpperCase()}</T>
-      </View>
-      <T color="#fff" size={20} weight="700" style={{ letterSpacing: 2 }} selectable={reveal}>{reveal ? groupCard(card.number) : `•••• •••• •••• ${card.number.slice(-4)}`}</T>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        <T color="#fff" size={13}>{card.holder}</T>
-        <T color="#fff" size={13}>{card.expiry}{reveal ? `  CVV ${card.cvv}` : ''}</T>
-      </View>
-      {card.status !== 'activa' ? <T color="#FDE68A" weight="800" size={12}>{card.status.toUpperCase()}</T> : null}
-    </Pressable>
+    <Surface background={bg} radius="xl" padding="lg" gap="lg" aspectRatio={1.6} justify="between" elevation="md"
+      onPress={onPress} accessibilityLabel={`Tarjeta ${card.brand} terminada en ${card.number.slice(-4)}`}>
+      <Inline justify="between">
+        <Text tone="inverse" weight="bold">{card.kind === 'credito' ? 'Crédito' : 'Débito'}{card.virtual ? ' · Virtual' : ''}{card.oneTime ? ' · 1 uso' : ''}</Text>
+        <Text tone="inverse" weight="heavy">{card.brand.toUpperCase()}</Text>
+      </Inline>
+      <Text tone="inverse" variant="headline" weight="bold" letterSpacing="wide" selectable={reveal}>{reveal ? groupCard(card.number) : `•••• •••• •••• ${card.number.slice(-4)}`}</Text>
+      <Inline justify="between">
+        <Text tone="inverse" variant="bodySmall">{card.holder}</Text>
+        <Text tone="inverse" variant="bodySmall">{card.expiry}{reveal ? `  CVV ${card.cvv}` : ''}</Text>
+      </Inline>
+      {card.status !== 'activa' ? <Text tone="highlight" weight="heavy" variant="caption">{card.status.toUpperCase()}</Text> : null}
+    </Surface>
   );
 }
 
@@ -54,7 +52,7 @@ export function CardsList() {
   const cards = useCards();
   return (
     <Screen>
-      {cards.length === 0 ? <Empty text="No tenés tarjetas activas" /> : cards.map((c) => <CardVisual key={c.id} card={c} onPress={() => router.push(`/tarjeta/${c.id}`)} />)}
+      {cards.length === 0 ? <EmptyState text="No tenés tarjetas activas" /> : cards.map((c) => <CardVisual key={c.id} card={c} onPress={() => router.push(`/tarjeta/${c.id}`)} />)}
       <Button title="Crear tarjeta virtual" icon="add" variant="secondary" onPress={() => router.push('/feature/virtual-card')} />
     </Screen>
   );
@@ -63,7 +61,7 @@ export function CardsList() {
 function LockCard({ cardId }: { cardId?: string }) {
   const { card, picker } = useSelected(cardId);
   const { exec, feedback } = useAction();
-  if (!card) return <Empty text="Sin tarjetas" />;
+  if (!card) return <EmptyState text="Sin tarjetas" />;
   return (
     <Card>
       {picker}
@@ -81,7 +79,7 @@ function ReportCard() {
   const [reissue, setReissue] = useState(true);
   return (
     <Screen><Card>
-      <H>Denunciar robo, pérdida o daño</H>
+      <Text variant="heading">Denunciar robo, pérdida o daño</Text>
       {picker}
       <Chips label="Motivo" options={[{ label: 'Robo', value: 'robo' }, { label: 'Pérdida', value: 'pérdida' }, { label: 'Daño', value: 'daño' }]} value={reason} onChange={setReason} />
       <ToggleRow title="Reponer tarjeta" subtitle="Nueva numeración, envío en 5 días hábiles" value={reissue} onChange={setReissue} />
@@ -96,7 +94,7 @@ function RevealCard({ cardId }: { cardId?: string }) {
   const { state } = useBank();
   const { card, picker } = useSelected(cardId);
   const [code, setCode] = useState(''); const [reveal, setReveal] = useState(false); const [err, setErr] = useState<string | null>(null);
-  if (!card) return <Empty text="Sin tarjetas" />;
+  if (!card) return <EmptyState text="Sin tarjetas" />;
   return (
     <Card>
       {picker}
@@ -120,8 +118,8 @@ function VirtualCard({ oneTime }: { oneTime?: boolean }) {
   return (
     <Screen>
       <Card>
-        <H>{oneTime ? 'Tarjeta de un solo uso' : 'Nueva tarjeta virtual'}</H>
-        <T muted size={13}>{oneTime ? 'Se cancela automáticamente después de la primera compra. Ideal para sitios desconocidos.' : 'Para compras online y suscripciones. Lista para usar al instante.'}</T>
+        <Text variant="heading">{oneTime ? 'Tarjeta de un solo uso' : 'Nueva tarjeta virtual'}</Text>
+        <Text tone="muted" variant="bodySmall">{oneTime ? 'Se cancela automáticamente después de la primera compra. Ideal para sitios desconocidos.' : 'Para compras online y suscripciones. Lista para usar al instante.'}</Text>
         <AccountPicker label="Cuenta asociada" value={acc} onChange={setAcc} />
         <Input label="Límite de gasto" value={limit} onChangeText={setLimit} keyboardType="decimal-pad" />
         {feedback}
@@ -136,10 +134,10 @@ function CardPin({ cardId }: { cardId?: string }) {
   const { card, picker } = useSelected(cardId, (c) => !c.virtual);
   const { exec, feedback } = useAction();
   const [cur, setCur] = useState(''); const [pin, setPin] = useState(''); const [conf, setConf] = useState('');
-  if (!card) return <Empty text="Sin tarjetas físicas" />;
+  if (!card) return <EmptyState text="Sin tarjetas físicas" />;
   return (
     <Card>
-      <H>Cambiar PIN</H>
+      <Text variant="heading">Cambiar PIN</Text>
       {picker}
       <Input label="PIN actual" value={cur} onChangeText={setCur} keyboardType="number-pad" secureTextEntry maxLength={4} hint="Demo: débito 1234 · crédito 4321" />
       <Input label="Nuevo PIN" value={pin} onChangeText={setPin} keyboardType="number-pad" secureTextEntry maxLength={4} />
@@ -154,13 +152,13 @@ function CardLimit({ cardId }: { cardId?: string }) {
   const { card, picker } = useSelected(cardId);
   const { exec, feedback } = useAction();
   const [limit, setLimit] = useState('');
-  if (!card) return <Empty text="Sin tarjetas" />;
+  if (!card) return <EmptyState text="Sin tarjetas" />;
   return (
     <Card>
-      <H>Límite de gasto</H>
+      <Text variant="heading">Límite de gasto</Text>
       {picker}
-      <KV k="Límite actual" v={money(card.limit)} />
-      <KV k="Consumido" v={money(card.used)} />
+      <KeyValue k="Límite actual" v={money(card.limit)} />
+      <KeyValue k="Consumido" v={money(card.used)} />
       <Progress value={card.used / card.limit} />
       <Input label="Nuevo límite" value={limit} onChangeText={setLimit} keyboardType="decimal-pad" />
       {feedback}
@@ -172,7 +170,7 @@ function CardLimit({ cardId }: { cardId?: string }) {
 function CardOnline({ cardId }: { cardId?: string }) {
   const { card, picker } = useSelected(cardId);
   const { exec, feedback } = useAction();
-  if (!card) return <Empty text="Sin tarjetas" />;
+  if (!card) return <EmptyState text="Sin tarjetas" />;
   return (
     <Card>
       {picker}
@@ -189,8 +187,8 @@ function TravelNotice() {
   const [country, setCountry] = useState(''); const [from, setFrom] = useState(isoDay(7)); const [to, setTo] = useState(isoDay(21));
   return (
     <Screen><Card>
-      <H>Aviso de viaje</H>
-      <T muted size={13}>Evitá rechazos por seguridad cuando usás tu tarjeta en otro país.</T>
+      <Text variant="heading">Aviso de viaje</Text>
+      <Text tone="muted" variant="bodySmall">Evitá rechazos por seguridad cuando usás tu tarjeta en otro país.</Text>
       {picker}
       {card?.travelNotice ? <Banner kind="info" text={`Aviso vigente: ${card.travelNotice.country} del ${date(card.travelNotice.from)} al ${date(card.travelNotice.to)}`} /> : null}
       <Input label="País de destino" value={country} onChangeText={setCountry} />
@@ -205,24 +203,24 @@ function TravelNotice() {
 function CreditStatement() {
   const { state } = useBank();
   const { card, picker } = useSelected(undefined, (c) => c.kind === 'credito');
-  if (!card) return <Screen><Empty text="No tenés tarjetas de crédito" /></Screen>;
+  if (!card) return <Screen><EmptyState text="No tenés tarjetas de crédito" /></Screen>;
   const st = L.creditCardStatement(card);
   const purchases = state.transactions.filter((t) => t.type === 'card').slice(0, 10);
   return (
     <Screen>
       {picker}
       <Card>
-        <H>Resumen de tarjeta</H>
-        <KV k="Saldo a pagar" v={money(st.balance)} />
-        <KV k="Pago mínimo" v={money(st.minimum)} />
-        <KV k="Vencimiento" v={date(st.dueDate)} />
-        <KV k="Disponible" v={money(st.available)} />
+        <Text variant="heading">Resumen de tarjeta</Text>
+        <KeyValue k="Saldo a pagar" v={money(st.balance)} />
+        <KeyValue k="Pago mínimo" v={money(st.minimum)} />
+        <KeyValue k="Vencimiento" v={date(st.dueDate)} />
+        <KeyValue k="Disponible" v={money(st.available)} />
         <Progress value={card.used / card.limit} />
         <Button title="Pagar tarjeta" onPress={() => router.push('/feature/pay-credit-card')} />
       </Card>
       <Card>
-        <H>Consumos recientes</H>
-        {purchases.map((t) => <KV key={t.id} k={`${date(t.date)} · ${t.description}`} v={money(t.amount)} />)}
+        <Text variant="heading">Consumos recientes</Text>
+        {purchases.map((t) => <KeyValue key={t.id} k={`${date(t.date)} · ${t.description}`} v={money(t.amount)} />)}
       </Card>
     </Screen>
   );
@@ -236,15 +234,15 @@ function Installments() {
   const plan = L.installmentPlan(parseAmount(amount) || 0, months, rate);
   return (
     <Screen><Card>
-      <H>Compras en cuotas</H>
+      <Text variant="heading">Compras en cuotas</Text>
       {picker}
       <Input label="Comercio" value={merchant} onChangeText={setMerchant} placeholder="Ej: Tienda Electro" />
       <Input label="Monto de la compra" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
       <Chips label="Cuotas" options={[1, 3, 6, 12, 18].map((m) => ({ label: `${m}`, value: m }))} value={months} onChange={setMonths} />
-      <KV k="Tasa (TNA)" v={rate ? `${rate}%` : 'Sin interés'} />
-      <KV k="Cuota" v={money(plan.quota)} />
-      <KV k="Total financiado" v={money(plan.total)} />
-      <KV k="Intereses" v={money(plan.interest)} />
+      <KeyValue k="Tasa (TNA)" v={rate ? `${rate}%` : 'Sin interés'} />
+      <KeyValue k="Cuota" v={money(plan.quota)} />
+      <KeyValue k="Total financiado" v={money(plan.total)} />
+      <KeyValue k="Intereses" v={money(plan.interest)} />
       {feedback}
       {card ? <Button title="Confirmar compra en cuotas" onPress={() => exec((s) => L.cardPurchase(s, card.id, `${merchant || 'Compra'} (${months} cuotas)`, plan.total), 'Compra registrada en tu tarjeta.')} /> : null}
     </Card></Screen>
@@ -257,9 +255,9 @@ function LimitIncrease() {
   const [amount, setAmount] = useState('');
   return (
     <Screen><Card>
-      <H>Solicitar aumento de límite</H>
+      <Text variant="heading">Solicitar aumento de límite</Text>
       {picker}
-      {card ? <KV k="Límite actual" v={money(card.limit)} /> : null}
+      {card ? <KeyValue k="Límite actual" v={money(card.limit)} /> : null}
       {card?.limitRequest ? <Banner kind="info" text={`Última solicitud: ${money(card.limitRequest.amount)} · ${card.limitRequest.status}`} /> : null}
       <Input label="Nuevo límite deseado" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" hint="Evaluamos al instante según tus ingresos (hasta 3x)." />
       {feedback}
@@ -272,7 +270,7 @@ function LimitIncrease() {
 export function CardDetail({ cardId }: { cardId: string }) {
   const { state } = useBank();
   const card = state.cards.find((c) => c.id === cardId);
-  if (!card) return <Screen><Empty text="Tarjeta no encontrada" /></Screen>;
+  if (!card) return <Screen><EmptyState text="Tarjeta no encontrada" /></Screen>;
   return (
     <Screen>
       <RevealCard cardId={cardId} />

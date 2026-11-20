@@ -1,14 +1,15 @@
 import { Redirect, Stack, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
-import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { DesignSystemProvider, Spinner, Stack as DSStack, useTheme } from '../design-system';
 import { BankProvider, useBank } from '../store/BankContext';
 
 function Gate() {
-  const { ready, authenticated, colors, dark } = useBank();
+  const { ready, authenticated } = useBank();
+  const { colors, dark } = useTheme();
   const segments = useSegments();
-  if (!ready) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}><ActivityIndicator color={colors.primary} /></View>;
+  if (!ready) return <DSStack flex align="center" justify="center" background="bg"><Spinner /></DSStack>;
   const onLogin = segments[0] === 'login';
   return (
     <>
@@ -22,16 +23,23 @@ function Gate() {
         <Stack.Screen name="cuenta/[id]" options={{ title: 'Cuenta' }} />
         <Stack.Screen name="movimiento/[id]" options={{ title: 'Movimiento' }} />
         <Stack.Screen name="tarjeta/[id]" options={{ title: 'Tarjeta' }} />
+        <Stack.Screen name="design-system" options={{ title: 'Design system' }} />
       </Stack>
     </>
   );
+}
+
+/** Conecta la preferencia de tema del usuario con el design system. */
+function ThemedApp() {
+  const { dark } = useBank();
+  return <DesignSystemProvider dark={dark}><Gate /></DesignSystemProvider>;
 }
 
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <BankProvider>
-        <Gate />
+        <ThemedApp />
       </BankProvider>
     </SafeAreaProvider>
   );

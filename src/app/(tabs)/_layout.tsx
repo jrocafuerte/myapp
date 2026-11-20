@@ -1,15 +1,15 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router/js-tabs';
 import React from 'react';
-import type { ColorValue } from 'react-native';
+import { Icon, useTheme, type IconName } from '../../design-system';
 import { useBank } from '../../store/BankContext';
 import { useT } from '../../utils/i18n';
 
-type IconName = React.ComponentProps<typeof Ionicons>['name'];
-const icon = (name: IconName) => ({ color, size }: { color: ColorValue; size: number }) => <Ionicons name={name} color={color as string} size={size} />;
+// El color del ícono lo decide la barra (activo/inactivo); usamos el tono equivalente del design system.
+const icon = (name: IconName) => ({ focused }: { focused: boolean }) => <Icon name={name} size="lg" tone={focused ? 'primary' : 'muted'} />;
 
 export default function TabsLayout() {
-  const { colors, state } = useBank();
+  const { colors } = useTheme();
+  const { state } = useBank();
   const t = useT();
   const unread = state.notifications.filter((n) => !n.read).length;
   return (
@@ -19,7 +19,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="movimientos" options={{ title: t('movements'), tabBarIcon: icon('list') }} />
       <Tabs.Screen name="pagos" options={{ title: t('payments'), tabBarIcon: icon('swap-horizontal') }} />
       <Tabs.Screen name="tarjetas" options={{ title: t('cards'), tabBarIcon: icon('card') }} />
-      <Tabs.Screen name="mas" options={{ title: t('more'), tabBarIcon: icon('grid'), tabBarBadge: unread || undefined }} />
+      <Tabs.Screen name="mas" options={{ title: t('more'), tabBarIcon: icon('grid'), tabBarBadge: unread || undefined, tabBarBadgeStyle: { backgroundColor: colors.danger } }} />
     </Tabs>
   );
 }

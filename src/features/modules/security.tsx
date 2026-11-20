@@ -1,10 +1,12 @@
 import * as LocalAuthentication from 'expo-local-authentication';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Platform, View } from 'react-native';
+import { Platform } from 'react-native';
 import * as L from '../../store/logic';
 import { useBank } from '../../store/BankContext';
-import { Banner, Button, Card, Chips, ConfirmButton, Empty, H, Input, KV, Row, Screen, T, ToggleRow, useAction } from '../../ui/kit';
+import {
+  Banner, Button, Card, Chips, ConfirmButton, EmptyState, Input, KeyValue, ListItem, Screen, Stack, Text, ToggleRow, useAction,
+} from '../../ui/kit';
 import { date } from '../../utils/format';
 import type { Feature } from '../types';
 
@@ -14,11 +16,11 @@ function SessionInfo() {
   return (
     <Screen>
       <Card>
-        <H>Sesión activa</H>
-        <KV k="Usuario" v={state.user.username} />
-        <KV k="Último acceso" v={last ? date(last.date, true) : '—'} />
-        <KV k="Método" v={last?.method ?? '—'} />
-        <T size={13} muted>El inicio de sesión valida usuario y contraseña, registra el intento y alerta los fallidos.</T>
+        <Text variant="heading">Sesión activa</Text>
+        <KeyValue k="Usuario" v={state.user.username} />
+        <KeyValue k="Último acceso" v={last ? date(last.date, true) : '—'} />
+        <KeyValue k="Método" v={last?.method ?? '—'} />
+        <Text variant="bodySmall" tone="muted">El inicio de sesión valida usuario y contraseña, registra el intento y alerta los fallidos.</Text>
       </Card>
       <Button title="Cerrar sesión" icon="log-out-outline" variant="danger" onPress={() => { setAuthenticated(false); router.replace('/login'); }} />
     </Screen>
@@ -48,7 +50,7 @@ function Biometric() {
   return (
     <Screen>
       <Card>
-        <H>Huella / Face ID</H>
+        <Text variant="heading">Huella / Face ID</Text>
         {available === false ? <Banner kind="info" text="Este dispositivo no tiene biometría configurada (o estás en web)." /> : null}
         <ToggleRow title="Ingresar con biometría" subtitle="Se pedirá en la pantalla de acceso" value={state.settings.biometricEnabled}
           onChange={(v) => { if (available) toggle(v); }} />
@@ -65,8 +67,8 @@ function QuickPin() {
   return (
     <Screen>
       <Card>
-        <H>PIN de acceso rápido</H>
-        <T muted size={13}>{state.settings.pin ? 'Ya tenés un PIN configurado. Podés reemplazarlo o eliminarlo.' : 'Ingresá con un PIN de 4 a 6 dígitos sin escribir tu contraseña.'}</T>
+        <Text variant="heading">PIN de acceso rápido</Text>
+        <Text tone="muted" variant="bodySmall">{state.settings.pin ? 'Ya tenés un PIN configurado. Podés reemplazarlo o eliminarlo.' : 'Ingresá con un PIN de 4 a 6 dígitos sin escribir tu contraseña.'}</Text>
         <Input label="Nuevo PIN" value={pin} onChangeText={setPin} keyboardType="number-pad" secureTextEntry maxLength={6} />
         <Input label="Repetir PIN" value={confirm} onChangeText={setConfirm} keyboardType="number-pad" secureTextEntry maxLength={6} />
         {feedback}
@@ -84,7 +86,7 @@ function ChangePassword() {
   return (
     <Screen>
       <Card>
-        <H>Cambiar contraseña</H>
+        <Text variant="heading">Cambiar contraseña</Text>
         <Input label="Contraseña actual" value={cur} onChangeText={setCur} secureTextEntry />
         <Input label="Nueva contraseña" value={next} onChangeText={setNext} secureTextEntry hint={`Fortaleza: ${['muy débil', 'débil', 'media', 'buena', 'excelente'][strength]}`} />
         <Input label="Confirmar nueva contraseña" value={conf} onChangeText={setConf} secureTextEntry />
@@ -100,7 +102,7 @@ function TwoFactor() {
   return (
     <Screen>
       <Card>
-        <H>Autenticación en dos pasos</H>
+        <Text variant="heading">Autenticación en dos pasos</Text>
         <ToggleRow title="2FA activado" subtitle="Pedimos tu token digital para operaciones sensibles y nuevos dispositivos"
           value={state.settings.twoFactor} onChange={(v) => run((s) => L.mut(s, (d) => { d.settings.twoFactor = v; }))} />
         {!state.settings.twoFactor ? <Banner kind="error" text="Recomendamos mantener el 2FA activado." /> : null}
@@ -116,11 +118,11 @@ function OtpToken() {
   const remaining = 30 - Math.floor((now / 1000) % 30);
   return (
     <Screen>
-      <Card style={{ alignItems: 'center' }}>
-        <H>Token digital</H>
-        <T size={44} weight="800" style={{ letterSpacing: 8 }} selectable>{L.otpCode(state.user.username, now)}</T>
-        <T muted>Se renueva en {remaining} s</T>
-        <T size={12} muted center>Usalo para confirmar transferencias a nuevos destinatarios, cambios de límites y nuevos dispositivos. Nunca lo compartas.</T>
+      <Card align="center">
+        <Text variant="heading">Token digital</Text>
+        <Text variant="display" weight="heavy" letterSpacing="code" selectable>{L.otpCode(state.user.username, now)}</Text>
+        <Text tone="muted">Se renueva en {remaining} s</Text>
+        <Text variant="caption" tone="muted" align="center">Usalo para confirmar transferencias a nuevos destinatarios, cambios de límites y nuevos dispositivos. Nunca lo compartas.</Text>
       </Card>
     </Screen>
   );
@@ -131,8 +133,8 @@ function AutoLock() {
   return (
     <Screen>
       <Card>
-        <H>Cierre de sesión automático</H>
-        <T muted size={13}>La sesión se cierra tras este tiempo sin actividad o en segundo plano.</T>
+        <Text variant="heading">Cierre de sesión automático</Text>
+        <Text tone="muted" variant="bodySmall">La sesión se cierra tras este tiempo sin actividad o en segundo plano.</Text>
         <Chips options={[1, 2, 5, 10, 15].map((m) => ({ label: `${m} min`, value: m }))} value={state.settings.autoLockMinutes}
           onChange={(m) => run((s) => L.mut(s, (d) => { d.settings.autoLockMinutes = m; }))} />
       </Card>
@@ -148,7 +150,7 @@ function Devices() {
       {feedback}
       {state.devices.map((d) => (
         <Card key={d.id}>
-          <Row icon={d.current ? 'phone-portrait' : 'desktop-outline'} title={d.name} subtitle={`Activo: ${date(d.lastActive, true)}${d.current ? ' · actual' : ''}`} />
+          <ListItem icon={d.current ? 'phone-portrait' : 'desktop-outline'} title={d.name} subtitle={`Activo: ${date(d.lastActive, true)}${d.current ? ' · actual' : ''}`} />
           {!d.current ? <ConfirmButton small title="Desvincular" variant="secondary" onConfirm={() => exec((s) => L.revokeDevice(s, d.id), 'Dispositivo desvinculado.')} /> : null}
         </Card>
       ))}
@@ -157,14 +159,14 @@ function Devices() {
 }
 
 function LoginHistory() {
-  const { state, colors } = useBank();
+  const { state } = useBank();
   return (
     <Screen>
       <Card>
-        {state.loginHistory.length === 0 ? <Empty text="Sin accesos registrados" /> : state.loginHistory.slice(0, 50).map((l) => (
-          <Row key={l.id} icon={l.success ? 'checkmark-circle-outline' : 'close-circle-outline'} danger={!l.success}
+        {state.loginHistory.length === 0 ? <EmptyState text="Sin accesos registrados" /> : state.loginHistory.slice(0, 50).map((l) => (
+          <ListItem key={l.id} icon={l.success ? 'checkmark-circle-outline' : 'close-circle-outline'} danger={!l.success}
             title={l.success ? 'Acceso exitoso' : 'Intento fallido'} subtitle={`${date(l.date, true)} · ${l.device} · ${l.method}`}
-            right={l.success ? '' : '⚠'} rightColor={colors.danger} />
+            right={l.success ? '' : '⚠'} rightTone={'danger'} />
         ))}
       </Card>
     </Screen>
@@ -179,8 +181,8 @@ function SecurityQuestions() {
   return (
     <Screen>
       <Card>
-        <H>Preguntas de seguridad</H>
-        <T muted size={13}>{state.settings.securityQuestions.length ? `Configuradas: ${state.settings.securityQuestions.length}. Completá para reemplazarlas.` : 'Se usan para recuperar el acceso. Respondé al menos dos.'}</T>
+        <Text variant="heading">Preguntas de seguridad</Text>
+        <Text tone="muted" variant="bodySmall">{state.settings.securityQuestions.length ? `Configuradas: ${state.settings.securityQuestions.length}. Completá para reemplazarlas.` : 'Se usan para recuperar el acceso. Respondé al menos dos.'}</Text>
         {QUESTIONS.map((q) => <Input key={q} label={q} value={answers[q] ?? ''} onChangeText={(v) => setAnswers({ ...answers, [q]: v })} />)}
         {feedback}
         <Button title="Guardar" onPress={() => exec((s) => L.setSecurityQuestions(s, Object.entries(answers).filter(([, a]) => a.trim()).map(([question, answer]) => ({ question, answer }))), 'Preguntas guardadas.')} />
@@ -194,7 +196,7 @@ function PrivacyMode() {
   return (
     <Screen>
       <Card>
-        <H>Modo privacidad</H>
+        <Text variant="heading">Modo privacidad</Text>
         <ToggleRow title="Ocultar saldos" subtitle="Muestra •••• en lugar de los montos en toda la app" value={state.settings.hideBalances}
           onChange={(v) => run((s) => L.mut(s, (d) => { d.settings.hideBalances = v; }))} />
         <ToggleRow title="Saldo rápido en inicio" subtitle="Mostrar la tarjeta de saldo total en el inicio" value={state.settings.quickBalanceWidget}
@@ -212,14 +214,14 @@ function EmergencyLock() {
   return (
     <Screen>
       <Card>
-        <H>{locked ? 'Bloqueo de emergencia ACTIVO' : 'Bloqueo de emergencia'}</H>
-        <T muted size={13}>Bloquea al instante todas tus tarjetas y las operaciones salientes. Usalo si perdiste el celular o sospechás fraude.</T>
+        <Text variant="heading">{locked ? 'Bloqueo de emergencia ACTIVO' : 'Bloqueo de emergencia'}</Text>
+        <Text tone="muted" variant="bodySmall">Bloquea al instante todas tus tarjetas y las operaciones salientes. Usalo si perdiste el celular o sospechás fraude.</Text>
         {feedback}
         {locked ? (
-          <View style={{ gap: 10 }}>
+          <Stack gap="md">
             <Input label="Contraseña para desbloquear" value={pwd} onChangeText={setPwd} secureTextEntry />
             <Button title="Desbloquear" onPress={() => { if (exec((s) => L.setEmergencyLock(s, false, pwd), 'Cuenta desbloqueada.')) setPwd(''); }} />
-          </View>
+          </Stack>
         ) : <ConfirmButton title="Bloquear todo ahora" variant="danger" icon="lock-closed" onConfirm={() => exec((s) => L.setEmergencyLock(s, true), 'Bloqueo activado.')} />}
       </Card>
     </Screen>

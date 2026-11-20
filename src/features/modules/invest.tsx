@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { View } from 'react-native';
 import * as L from '../../store/logic';
 import { useBank } from '../../store/BankContext';
 import type { Insurance, MarketAsset } from '../../store/types';
 import {
-  AccountPicker, Banner, Button, Card, Chips, ConfirmButton, Empty, H, Input, KV, Row, Screen, T, useAction,
+  AccountPicker, Banner, Button, Card, Chips, ConfirmButton, EmptyState, Inline, Input, KeyValue, ListItem, Screen, Text, useAction,
 } from '../../ui/kit';
 import { date, money, parseAmount, pct } from '../../utils/format';
 import type { Feature } from '../types';
@@ -13,32 +12,31 @@ const useUsdAccount = () => { const { state } = useBank(); return state.accounts
 const typeLabel: Record<MarketAsset['type'], string> = { accion: 'Acción', fondo: 'Fondo', cripto: 'Cripto', bono: 'Bono', etf: 'ETF' };
 
 function AssetRow({ a }: { a: MarketAsset }) {
-  const { colors } = useBank();
-  return <Row icon={a.type === 'cripto' ? 'logo-bitcoin' : a.type === 'fondo' ? 'albums-outline' : 'trending-up-outline'} title={`${a.symbol} · ${a.name}`}
-    subtitle={`${typeLabel[a.type]} · riesgo ${'●'.repeat(a.risk)}${'○'.repeat(5 - a.risk)}`} right={`${money(a.price)}  ${pct(a.change)}`} rightColor={a.change >= 0 ? colors.success : colors.danger} />;
+  return <ListItem icon={a.type === 'cripto' ? 'logo-bitcoin' : a.type === 'fondo' ? 'albums-outline' : 'trending-up-outline'} title={`${a.symbol} · ${a.name}`}
+    subtitle={`${typeLabel[a.type]} · riesgo ${'●'.repeat(a.risk)}${'○'.repeat(5 - a.risk)}`} right={`${money(a.price)}  ${pct(a.change)}`} rightTone={a.change >= 0 ? 'success' : 'danger'} />;
 }
 
 function Portfolio() {
-  const { state, colors } = useBank();
+  const { state } = useBank();
   const p = L.portfolio(state);
   const hidden = state.settings.hideBalances;
   return (
     <Screen>
       <Card>
-        <T muted>Valor total invertido</T>
-        <T size={28} weight="800">{money(p.total, 'USD', { hidden })}</T>
-        <KV k="Ganancia/pérdida no realizada" v={money(p.pnl, 'USD', { sign: true, hidden })} />
-        <KV k="Plazos fijos" v={money(p.fixedDeposits, 'USD', { hidden })} />
-        <KV k="Perfil de inversor" v={state.settings.investorProfile ?? 'Sin definir'} />
+        <Text tone="muted">Valor total invertido</Text>
+        <Text variant="title" weight="heavy">{money(p.total, 'USD', { hidden })}</Text>
+        <KeyValue k="Ganancia/pérdida no realizada" v={money(p.pnl, 'USD', { sign: true, hidden })} />
+        <KeyValue k="Plazos fijos" v={money(p.fixedDeposits, 'USD', { hidden })} />
+        <KeyValue k="Perfil de inversor" v={state.settings.investorProfile ?? 'Sin definir'} />
       </Card>
       <Card>
-        <H>Posiciones</H>
-        {p.rows.length === 0 ? <Empty text="Todavía no invertiste" /> : p.rows.map((r) => (
-          <Row key={r.symbol} icon="pie-chart-outline" title={`${r.symbol} · ${r.qty.toFixed(r.asset.type === 'cripto' ? 6 : 2)} u.`}
-            subtitle={`Precio prom. ${money(r.avgPrice)} · actual ${money(r.asset.price)}`} right={`${money(r.value, 'USD', { hidden })} (${pct(r.pnlPct)})`} rightColor={r.pnl >= 0 ? colors.success : colors.danger} />
+        <Text variant="heading">Posiciones</Text>
+        {p.rows.length === 0 ? <EmptyState text="Todavía no invertiste" /> : p.rows.map((r) => (
+          <ListItem key={r.symbol} icon="pie-chart-outline" title={`${r.symbol} · ${r.qty.toFixed(r.asset.type === 'cripto' ? 6 : 2)} u.`}
+            subtitle={`Precio prom. ${money(r.avgPrice)} · actual ${money(r.asset.price)}`} right={`${money(r.value, 'USD', { hidden })} (${pct(r.pnlPct)})`} rightTone={r.pnl >= 0 ? 'success' : 'danger'} />
         ))}
       </Card>
-      <T size={12} muted>Las cotizaciones se actualizan cada pocos segundos (datos simulados).</T>
+      <Text variant="caption" tone="muted">Las cotizaciones se actualizan cada pocos segundos (datos simulados).</Text>
     </Screen>
   );
 }
@@ -53,17 +51,17 @@ function Buy({ filter }: { filter?: MarketAsset['type'][] }) {
   return (
     <Screen>
       <Card>
-        <H>Comprar</H>
+        <Text variant="heading">Comprar</Text>
         <Chips options={assets.map((x) => ({ label: x.symbol, value: x.symbol }))} value={sym} onChange={setSym} />
         {a ? <AssetRow a={a} /> : null}
         <AccountPicker label="Debitar de (USD)" value={acc} onChange={setAcc} currency="USD" />
         <Input label="Monto a invertir (USD)" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
-        {a && n > 0 ? <KV k="Recibirás aprox." v={`${((n * 0.995) / a.price).toFixed(6)} u. (comisión 0.5%)`} /> : null}
+        {a && n > 0 ? <KeyValue k="Recibirás aprox." v={`${((n * 0.995) / a.price).toFixed(6)} u. (comisión 0.5%)`} /> : null}
         {a && a.risk >= 4 && state.settings.investorProfile !== 'agresivo' && state.settings.investorProfile !== 'moderado' ? <Banner kind="info" text="Instrumento de alto riesgo: requiere completar el test de perfil de inversor." /> : null}
         {feedback}
         <Button title="Confirmar compra" disabled={!a || !acc} onPress={() => exec((s) => L.buyAsset(s, acc!, sym!, n), `Compraste ${sym}.`)} />
       </Card>
-      <Card><H>Opciones disponibles</H>{assets.map((x) => <AssetRow key={x.symbol} a={x} />)}</Card>
+      <Card><Text variant="heading">Opciones disponibles</Text>{assets.map((x) => <AssetRow key={x.symbol} a={x} />)}</Card>
     </Screen>
   );
 }
@@ -73,17 +71,17 @@ function Sell() {
   const { exec, feedback } = useAction();
   const [sym, setSym] = useState(state.holdings[0]?.symbol); const [qty, setQty] = useState(''); const [acc, setAcc] = useState(useUsdAccount());
   const h = state.holdings.find((x) => x.symbol === sym); const a = state.market.find((x) => x.symbol === sym);
-  if (!state.holdings.length) return <Screen><Empty text="No tenés posiciones para vender" /></Screen>;
+  if (!state.holdings.length) return <Screen><EmptyState text="No tenés posiciones para vender" /></Screen>;
   return (
     <Screen><Card>
-      <H>Vender</H>
+      <Text variant="heading">Vender</Text>
       <Chips options={state.holdings.map((x) => ({ label: x.symbol, value: x.symbol }))} value={sym} onChange={setSym} />
-      {h && a ? <KV k="Tenencia" v={`${h.qty.toFixed(6)} u. · ${money(h.qty * a.price)}`} /> : null}
-      <View style={{ flexDirection: 'row', gap: 8 }}>
+      {h && a ? <KeyValue k="Tenencia" v={`${h.qty.toFixed(6)} u. · ${money(h.qty * a.price)}`} /> : null}
+      <Inline gap="sm">
         {[0.25, 0.5, 1].map((f) => <Button key={f} small variant="secondary" title={`${f * 100}%`} onPress={() => h && setQty(String(+(h.qty * f).toFixed(8)))} />)}
-      </View>
+      </Inline>
       <Input label="Cantidad" value={qty} onChangeText={setQty} keyboardType="decimal-pad" />
-      {a && parseAmount(qty) > 0 ? <KV k="Recibirás aprox." v={money(parseAmount(qty) * a.price * 0.995)} /> : null}
+      {a && parseAmount(qty) > 0 ? <KeyValue k="Recibirás aprox." v={money(parseAmount(qty) * a.price * 0.995)} /> : null}
       <AccountPicker label="Acreditar en (USD)" value={acc} onChange={setAcc} currency="USD" />
       {feedback}
       <Button title="Confirmar venta" onPress={() => { if (exec((s) => L.sellAsset(s, acc!, sym!, parseAmount(qty)), `Vendiste ${sym}.`)) setQty(''); }} />
@@ -99,7 +97,7 @@ function MarketQuotes() {
     <Screen>
       <Chips options={[{ label: 'Todos', value: 'todos' as const }, ...(['accion', 'etf', 'fondo', 'bono', 'cripto'] as const).map((t) => ({ label: typeLabel[t], value: t }))]} value={type} onChange={setType} />
       <Card>{list.map((a) => <AssetRow key={a.symbol} a={a} />)}</Card>
-      <T size={12} muted>Actualización automática · datos simulados con fines demostrativos.</T>
+      <Text variant="caption" tone="muted">Actualización automática · datos simulados con fines demostrativos.</Text>
     </Screen>
   );
 }
@@ -112,12 +110,12 @@ function FxExchange() {
   const q = fa && ta ? L.fxQuote(fa.currency, ta.currency) : null;
   return (
     <Screen><Card>
-      <H>Compra / venta de divisas</H>
+      <Text variant="heading">Compra / venta de divisas</Text>
       <AccountPicker label="Vendo desde" value={from} onChange={setFrom} />
       <AccountPicker label="Compro en" value={to} onChange={setTo} exclude={from} />
-      {q && fa && ta ? <KV k="Tipo de cambio" v={`1 ${fa.currency} = ${q.rate.toFixed(4)} ${ta.currency}`} /> : null}
+      {q && fa && ta ? <KeyValue k="Tipo de cambio" v={`1 ${fa.currency} = ${q.rate.toFixed(4)} ${ta.currency}`} /> : null}
       <Input label={`Monto en ${fa?.currency ?? ''}`} value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
-      {q && ta && parseAmount(amount) > 0 ? <KV k="Recibís" v={money(parseAmount(amount) * q.rate, ta.currency)} /> : null}
+      {q && ta && parseAmount(amount) > 0 ? <KeyValue k="Recibís" v={money(parseAmount(amount) * q.rate, ta.currency)} /> : null}
       {feedback}
       <Button title="Operar" disabled={!from || !to} onPress={() => { if (exec((s) => L.exchangeCurrency(s, from!, to!, parseAmount(amount)), 'Operación de cambio realizada.')) setAmount(''); }} />
     </Card></Screen>
@@ -155,14 +153,14 @@ function MyInsurance() {
   return (
     <Screen>
       {feedback}
-      {state.insurances.length === 0 ? <Empty text="No tenés seguros contratados" /> : state.insurances.map((i) => (
+      {state.insurances.length === 0 ? <EmptyState text="No tenés seguros contratados" /> : state.insurances.map((i) => (
         <Card key={i.id}>
-          <Row icon="umbrella-outline" title={`Seguro de ${i.type}`} subtitle={`${i.status} · desde ${date(i.start)}`} right={`${money(i.premium)}/mes`} />
-          <KV k="Cobertura" v={money(i.coverage)} />
+          <ListItem icon="umbrella-outline" title={`Seguro de ${i.type}`} subtitle={`${i.status} · desde ${date(i.start)}`} right={`${money(i.premium)}/mes`} />
+          <KeyValue k="Cobertura" v={money(i.coverage)} />
           {i.status === 'vigente' ? <ConfirmButton small title="Dar de baja" variant="ghost" onConfirm={() => exec((s) => L.cancelInsurance(s, i.id), 'Seguro dado de baja.')} /> : null}
         </Card>
       ))}
-      {state.claims.length ? <Card><H>Siniestros</H>{state.claims.map((c) => <Row key={c.id} icon="document-text-outline" title={c.description.slice(0, 40)} subtitle={`${date(c.date)} · ${c.status}`} />)}</Card> : null}
+      {state.claims.length ? <Card><Text variant="heading">Siniestros</Text>{state.claims.map((c) => <ListItem key={c.id} icon="document-text-outline" title={c.description.slice(0, 40)} subtitle={`${date(c.date)} · ${c.status}`} />)}</Card> : null}
     </Screen>
   );
 }
@@ -174,10 +172,10 @@ function QuoteInsurance({ contract }: { contract?: boolean }) {
   try { premium = L.quoteInsurance(type, parseAmount(coverage) || 0); } catch (e) { err = (e as Error).message; }
   return (
     <Screen><Card>
-      <H>{contract ? 'Contratar seguro' : 'Cotizar seguro'}</H>
+      <Text variant="heading">{contract ? 'Contratar seguro' : 'Cotizar seguro'}</Text>
       <Chips label="Tipo" options={INS_TYPES.map((t) => ({ label: t, value: t }))} value={type} onChange={setType} />
       <Input label={`Suma asegurada (${L.INSURANCE_BASE[type].min}–${L.INSURANCE_BASE[type].max})`} value={coverage} onChangeText={setCoverage} keyboardType="decimal-pad" />
-      {premium !== null ? <KV k="Prima mensual" v={money(premium)} /> : <Banner kind="error" text={err} />}
+      {premium !== null ? <KeyValue k="Prima mensual" v={money(premium)} /> : <Banner kind="error" text={err} />}
       {contract ? (
         <>
           <AccountPicker label="Débito mensual de" value={acc} onChange={setAcc} />
@@ -194,10 +192,10 @@ function FileClaim() {
   const { exec, feedback } = useAction();
   const active = state.insurances.filter((i) => i.status === 'vigente');
   const [ins, setIns] = useState(active[0]?.id); const [desc, setDesc] = useState('');
-  if (!active.length) return <Screen><Empty text="No tenés seguros vigentes" /></Screen>;
+  if (!active.length) return <Screen><EmptyState text="No tenés seguros vigentes" /></Screen>;
   return (
     <Screen><Card>
-      <H>Denunciar siniestro</H>
+      <Text variant="heading">Denunciar siniestro</Text>
       <Chips label="Seguro" options={active.map((i) => ({ label: i.type, value: i.id }))} value={ins} onChange={setIns} />
       <Input label="¿Qué pasó?" value={desc} onChangeText={setDesc} multiline placeholder="Describí fecha, lugar y lo ocurrido" />
       {feedback}

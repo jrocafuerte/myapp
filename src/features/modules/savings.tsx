@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { View } from 'react-native';
 import * as L from '../../store/logic';
 import { useBank } from '../../store/BankContext';
 import type { Category, Loan } from '../../store/types';
 import {
-  AccountPicker, Banner, Bars, Button, Card, Chips, ConfirmButton, Empty, H, Input, KV, Progress, Row, Screen, T, ToggleRow, useAction,
+  AccountPicker, Banner, BarList, Button, Card, Chips, ColumnChart, ConfirmButton, EmptyState, Input, KeyValue, ListItem, Progress, Screen, Stack, Text, ToggleRow, useAction,
 } from '../../ui/kit';
 import { date, isoDay, money, monthLabel, parseAmount } from '../../utils/format';
 import type { Feature } from '../types';
@@ -23,11 +22,11 @@ function GoalCard({ id, actions }: { id: string; actions?: 'contribute' | 'withd
   const monthly = Math.max(0, (g.target - g.saved) / monthsLeft);
   return (
     <Card>
-      <H>{g.emoji} {g.name}</H>
+      <Text variant="heading">{g.emoji} {g.name}</Text>
       <Progress value={g.saved / g.target} />
-      <KV k="Ahorrado" v={`${money(g.saved)} de ${money(g.target)} (${Math.round((g.saved / g.target) * 100)}%)`} />
-      <KV k="Fecha objetivo" v={date(g.deadline)} />
-      {g.saved < g.target ? <T size={12} muted>Para llegar, ahorrá {money(monthly)} por mes.</T> : <T weight="700">🎉 ¡Meta cumplida!</T>}
+      <KeyValue k="Ahorrado" v={`${money(g.saved)} de ${money(g.target)} (${Math.round((g.saved / g.target) * 100)}%)`} />
+      <KeyValue k="Fecha objetivo" v={date(g.deadline)} />
+      {g.saved < g.target ? <Text variant="caption" tone="muted">Para llegar, ahorrá {money(monthly)} por mes.</Text> : <Text weight="bold">🎉 ¡Meta cumplida!</Text>}
       {actions ? (
         <>
           <AccountPicker label={actions === 'contribute' ? 'Desde' : 'Hacia'} value={acc} onChange={setAcc} currency="USD" />
@@ -50,7 +49,7 @@ function Goals() {
     <Screen>
       {state.goals.map((g) => <GoalCard key={g.id} id={g.id} />)}
       <Card>
-        <H>Nueva meta</H>
+        <Text variant="heading">Nueva meta</Text>
         <Chips options={['🎯', '🏖️', '🚗', '🏠', '🎓', '💍', '🛟', '💻'].map((e) => ({ label: e, value: e }))} value={emoji} onChange={setEmoji} />
         <Input label="Nombre" value={name} onChangeText={setName} />
         <Input label="Monto objetivo" value={target} onChangeText={setTarget} keyboardType="decimal-pad" />
@@ -64,7 +63,7 @@ function Goals() {
 
 const GoalActions = ({ mode }: { mode: 'contribute' | 'withdraw' }) => {
   const { state } = useBank();
-  return <Screen>{state.goals.length ? state.goals.map((g) => <GoalCard key={g.id} id={g.id} actions={mode} />) : <Empty text="Creá una meta primero" />}</Screen>;
+  return <Screen>{state.goals.length ? state.goals.map((g) => <GoalCard key={g.id} id={g.id} actions={mode} />) : <EmptyState text="Creá una meta primero" />}</Screen>;
 };
 
 function RoundUp() {
@@ -74,34 +73,34 @@ function RoundUp() {
   const saved = state.transactions.filter((t) => t.description.startsWith('Redondeo')).reduce((a, t) => a - t.amount, 0);
   return (
     <Screen><Card>
-      <H>Redondeo automático</H>
-      <T muted size={13}>Cada compra con tarjeta o pago se redondea al dólar siguiente y la diferencia va a tu meta. Ej: gastás 4.30 → ahorrás 0.70.</T>
+      <Text variant="heading">Redondeo automático</Text>
+      <Text tone="muted" variant="bodySmall">Cada compra con tarjeta o pago se redondea al dólar siguiente y la diferencia va a tu meta. Ej: gastás 4.30 → ahorrás 0.70.</Text>
       <Chips label="Meta destino" options={state.goals.map((g) => ({ label: `${g.emoji} ${g.name}`, value: g.id }))} value={goal} onChange={setGoal} />
       <ToggleRow title="Activar redondeo" value={state.settings.roundUp} onChange={(v) => exec((s) => L.setRoundUp(s, v, goal), v ? 'Redondeo activado.' : 'Redondeo desactivado.')} />
-      <KV k="Ahorrado con redondeos" v={money(saved)} />
+      <KeyValue k="Ahorrado con redondeos" v={money(saved)} />
       {feedback}
     </Card></Screen>
   );
 }
 
 function Budgets() {
-  const { state, colors } = useBank();
+  const { state } = useBank();
   const { exec, feedback } = useAction();
   const [cat, setCat] = useState<Category>('Supermercado'); const [limit, setLimit] = useState('');
   const status = L.budgetStatus(state);
   return (
     <Screen>
       <Card>
-        <H>Presupuesto de {monthLabel(thisMonth())}</H>
-        {status.length === 0 ? <Empty text="Sin presupuestos" /> : status.map((b) => (
-          <View key={b.category} style={{ gap: 4 }}>
-            <KV k={b.category} v={`${money(b.used)} / ${money(b.limit)}`} />
-            <Progress value={b.pct} color={b.over ? colors.danger : b.warn ? colors.warning : colors.success} />
-          </View>
+        <Text variant="heading">Presupuesto de {monthLabel(thisMonth())}</Text>
+        {status.length === 0 ? <EmptyState text="Sin presupuestos" /> : status.map((b) => (
+          <Stack key={b.category} gap="xs">
+            <KeyValue k={b.category} v={`${money(b.used)} / ${money(b.limit)}`} />
+            <Progress value={b.pct} tone={b.over ? 'danger' : b.warn ? 'warning' : 'success'} />
+          </Stack>
         ))}
       </Card>
       <Card>
-        <H>Definir presupuesto</H>
+        <Text variant="heading">Definir presupuesto</Text>
         <Chips options={CATEGORIES.filter((c) => !['Ingresos', 'Transferencias', 'Ahorro', 'Inversiones'].includes(c)).map((c) => ({ label: c, value: c }))} value={cat} onChange={setCat} />
         <Input label="Límite mensual (0 para quitar)" value={limit} onChangeText={setLimit} keyboardType="decimal-pad" />
         {feedback}
@@ -121,10 +120,10 @@ function BudgetAlerts() {
         <Banner key={b.category} kind={b.over ? 'error' : 'info'} text={`${b.category}: ${b.over ? 'superaste' : 'usaste el ' + Math.round(b.pct * 100) + '% de'} tu presupuesto (${money(b.used)} de ${money(b.limit)}).`} />
       ))}
       <Card>
-        <H>Proyección a fin de mes</H>
+        <Text variant="heading">Proyección a fin de mes</Text>
         {L.budgetStatus(state).map((b) => {
           const projected = (b.used / day) * daysInMonth;
-          return <KV key={b.category} k={b.category} v={`${money(projected)} ${projected > b.limit ? '⚠️' : '✅'}`} />;
+          return <KeyValue key={b.category} k={b.category} v={`${money(projected)} ${projected > b.limit ? '⚠️' : '✅'}`} />;
         })}
       </Card>
     </Screen>
@@ -141,36 +140,25 @@ function SpendingAnalysis() {
     <Screen>
       <Chips options={months.map((m) => ({ label: monthLabel(m), value: m }))} value={month} onChange={setMonth} />
       <Card>
-        <H>Gastos por categoría · {money(total)}</H>
-        {data.length ? <Bars data={data.map((d) => ({ label: `${d.category} (${Math.round((d.total / total) * 100)}%)`, value: d.total }))} format={(n) => money(n)} /> : <Empty text="Sin gastos en este mes" />}
+        <Text variant="heading">Gastos por categoría · {money(total)}</Text>
+        {data.length ? <BarList data={data.map((d) => ({ label: `${d.category} (${Math.round((d.total / total) * 100)}%)`, value: d.total }))} format={(n) => money(n)} /> : <EmptyState text="Sin gastos en este mes" />}
       </Card>
     </Screen>
   );
 }
 
 function IncomeVsExpenses() {
-  const { state, colors } = useBank();
+  const { state } = useBank();
   const data = L.incomeVsExpenses(state, 6);
-  const max = Math.max(1, ...data.flatMap((d) => [d.income, d.expenses]));
   return (
     <Screen>
       <Card>
-        <H>Ingresos vs egresos (6 meses)</H>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 160, gap: 8 }}>
-          {data.map((d) => (
-            <View key={d.month} style={{ flex: 1, alignItems: 'center', gap: 4 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2, height: 130 }}>
-                <View style={{ width: 10, height: (d.income / max) * 130, backgroundColor: colors.success, borderRadius: 3 }} />
-                <View style={{ width: 10, height: (d.expenses / max) * 130, backgroundColor: colors.danger, borderRadius: 3 }} />
-              </View>
-              <T size={10} muted>{monthLabel(d.month).split(' ')[0]}</T>
-            </View>
-          ))}
-        </View>
-        <T size={12} muted>🟩 Ingresos · 🟥 Egresos</T>
+        <Text variant="heading">Ingresos vs egresos (6 meses)</Text>
+        <ColumnChart tones={['success', 'danger']} data={data.map((d) => ({ label: monthLabel(d.month).split(' ')[0], values: [d.income, d.expenses] }))} />
+        <Text variant="caption" tone="muted">🟩 Ingresos · 🟥 Egresos</Text>
       </Card>
       <Card>
-        {data.map((d) => <KV key={d.month} k={monthLabel(d.month)} v={`Ahorro: ${money(d.income - d.expenses, 'USD', { sign: true })}`} />)}
+        {data.map((d) => <KeyValue key={d.month} k={monthLabel(d.month)} v={`Ahorro: ${money(d.income - d.expenses, 'USD', { sign: true })}`} />)}
       </Card>
     </Screen>
   );
@@ -184,20 +172,20 @@ function FixedDeposit() {
   return (
     <Screen>
       <Card>
-        <H>Constituir plazo fijo</H>
+        <Text variant="heading">Constituir plazo fijo</Text>
         <AccountPicker value={acc} onChange={setAcc} />
         <Input label="Monto (mín. 100)" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
         <Chips label="Plazo" options={Object.keys(L.FD_RATES).map((d) => ({ label: `${d} días · ${L.FD_RATES[Number(d)]}%`, value: Number(d) }))} value={days} onChange={setDays} />
-        <KV k="Intereses" v={money(r.interest)} /><KV k="Total al vencimiento" v={money(r.total)} />
+        <KeyValue k="Intereses" v={money(r.interest)} /><KeyValue k="Total al vencimiento" v={money(r.total)} />
         <ToggleRow title="Renovación automática" value={renew} onChange={setRenew} />
         {feedback}
         <Button title="Constituir" onPress={() => exec((s) => L.createFixedDeposit(s, acc!, parseAmount(amount), days, renew), 'Plazo fijo constituido.')} />
       </Card>
       <Card>
-        <H>Mis plazos fijos</H>
-        {state.fixedDeposits.length === 0 ? <Empty text="Sin plazos fijos" /> : state.fixedDeposits.map((f) => {
+        <Text variant="heading">Mis plazos fijos</Text>
+        {state.fixedDeposits.length === 0 ? <EmptyState text="Sin plazos fijos" /> : state.fixedDeposits.map((f) => {
           const end = new Date(f.start); end.setDate(end.getDate() + f.days);
-          return <Row key={f.id} icon="lock-closed-outline" title={`${money(f.amount)} · ${f.rate}% TNA`} subtitle={`${f.status} · vence ${date(end.toISOString())}`} right={`+${money(L.fixedDepositReturn(f.amount, f.rate, f.days).interest)}`} />;
+          return <ListItem key={f.id} icon="lock-closed-outline" title={`${money(f.amount)} · ${f.rate}% TNA`} subtitle={`${f.status} · vence ${date(end.toISOString())}`} right={`+${money(L.fixedDepositReturn(f.amount, f.rate, f.days).interest)}`} />;
         })}
       </Card>
     </Screen>
@@ -209,11 +197,11 @@ function FdSimulator() {
   const r = L.fixedDepositReturn(parseAmount(amount) || 0, parseAmount(rate) || 0, Math.max(1, parseAmount(days) || 1));
   return (
     <Screen><Card>
-      <H>Simulador de plazo fijo</H>
+      <Text variant="heading">Simulador de plazo fijo</Text>
       <Input label="Monto" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
       <Input label="TNA %" value={rate} onChangeText={setRate} keyboardType="decimal-pad" />
       <Input label="Días" value={days} onChangeText={setDays} keyboardType="number-pad" />
-      <KV k="Intereses" v={money(r.interest)} /><KV k="Total" v={money(r.total)} /><KV k="TEA (renovando)" v={`${r.tea}%`} />
+      <KeyValue k="Intereses" v={money(r.interest)} /><KeyValue k="Total" v={money(r.total)} /><KeyValue k="TEA (renovando)" v={`${r.tea}%`} />
     </Card></Screen>
   );
 }
@@ -225,9 +213,9 @@ function RecurringExpenses() {
   return (
     <Screen>
       <Card>
-        <H>Gastos recurrentes detectados</H>
-        <T muted size={13}>Analizamos tus movimientos para detectar suscripciones y pagos fijos. Total mensual estimado: {money(total)} ({money(total * 12)} al año).</T>
-        {list.length === 0 ? <Empty text="No detectamos gastos recurrentes" /> : list.map((r) => <Row key={r.description} icon="repeat-outline" title={r.description} subtitle={`${r.count} meses · último ${date(r.last)}`} right={money(r.average)} />)}
+        <Text variant="heading">Gastos recurrentes detectados</Text>
+        <Text tone="muted" variant="bodySmall">Analizamos tus movimientos para detectar suscripciones y pagos fijos. Total mensual estimado: {money(total)} ({money(total * 12)} al año).</Text>
+        {list.length === 0 ? <EmptyState text="No detectamos gastos recurrentes" /> : list.map((r) => <ListItem key={r.description} icon="repeat-outline" title={r.description} subtitle={`${r.count} meses · último ${date(r.last)}`} right={money(r.average)} />)}
       </Card>
     </Screen>
   );
@@ -241,15 +229,15 @@ function LoanSimulator({ kind = 'personal' as Loan['kind'] }) {
   const opts = k === 'hipotecario' ? [120, 180, 240, 300, 360] : [6, 12, 24, 36, 48, 60];
   return (
     <Card>
-      <H>{kind === 'hipotecario' ? 'Simulador hipotecario' : 'Simulador de préstamo'}</H>
+      <Text variant="heading">{kind === 'hipotecario' ? 'Simulador hipotecario' : 'Simulador de préstamo'}</Text>
       {kind !== 'hipotecario' ? <Chips label="Tipo" options={[{ label: 'Personal', value: 'personal' as const }, { label: 'Auto', value: 'auto' as const }]} value={k} onChange={(v) => { setK(v); }} /> : null}
       <Input label={kind === 'hipotecario' ? 'Valor a financiar' : 'Monto'} value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
       <Chips label="Plazo (meses)" options={opts.map((m) => ({ label: `${m}`, value: m }))} value={months} onChange={setMonths} />
-      <KV k="Tasa (TNA)" v={`${L.LOAN_RATES[k]}%`} />
-      <KV k="Cuota mensual" v={money(sim.quota)} />
-      <KV k="Total a pagar" v={money(sim.total)} />
-      <KV k="Intereses" v={money(sim.interest)} />
-      {kind === 'hipotecario' ? <T size={12} muted>Ingreso mínimo sugerido: {money(sim.quota / 0.3)} (cuota ≤ 30% del ingreso).</T> : null}
+      <KeyValue k="Tasa (TNA)" v={`${L.LOAN_RATES[k]}%`} />
+      <KeyValue k="Cuota mensual" v={money(sim.quota)} />
+      <KeyValue k="Total a pagar" v={money(sim.total)} />
+      <KeyValue k="Intereses" v={money(sim.interest)} />
+      {kind === 'hipotecario' ? <Text variant="caption" tone="muted">Ingreso mínimo sugerido: {money(sim.quota / 0.3)} (cuota ≤ 30% del ingreso).</Text> : null}
     </Card>
   );
 }
@@ -260,7 +248,7 @@ function RequestLoan() {
   const sim = L.loanSimulation(parseAmount(amount) || 0, L.LOAN_RATES[kind], months);
   return (
     <Screen><Card>
-      <H>Solicitar préstamo</H>
+      <Text variant="heading">Solicitar préstamo</Text>
       <Chips label="Tipo" options={[{ label: 'Personal', value: 'personal' as const }, { label: 'Auto', value: 'auto' as const }, { label: 'Hipotecario', value: 'hipotecario' as const }]} value={kind} onChange={setKind} />
       <Input label="Monto" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
       <Chips label="Meses" options={[12, 24, 36, 48, 60].map((m) => ({ label: `${m}`, value: m }))} value={months} onChange={setMonths} />
@@ -281,29 +269,29 @@ function MyLoans({ action }: { action?: 'pay' | 'prepay' | 'schedule' }) {
     <Screen>
       {action && action !== 'schedule' ? <AccountPicker label="Pagar desde" value={acc} onChange={setAcc} /> : null}
       {feedback}
-      {loans.length === 0 ? <Empty text="No tenés préstamos activos" /> : loans.map((l) => {
+      {loans.length === 0 ? <EmptyState text="No tenés préstamos activos" /> : loans.map((l) => {
         const sim = L.loanSimulation(l.principal, l.rate, l.months);
         return (
           <Card key={l.id}>
-            <H>Préstamo {l.kind} · {money(l.principal)}</H>
+            <Text variant="heading">Préstamo {l.kind} · {money(l.principal)}</Text>
             <Progress value={l.paidInstallments / l.months} />
-            <KV k="Estado" v={l.status} />
-            <KV k="Cuotas pagadas" v={`${l.paidInstallments} / ${l.months}`} />
-            <KV k="Cuota" v={money(l.installment)} />
-            <KV k="Saldo de capital" v={money(l.outstanding)} />
+            <KeyValue k="Estado" v={l.status} />
+            <KeyValue k="Cuotas pagadas" v={`${l.paidInstallments} / ${l.months}`} />
+            <KeyValue k="Cuota" v={money(l.installment)} />
+            <KeyValue k="Saldo de capital" v={money(l.outstanding)} />
             {action === 'pay' ? <Button title={`Pagar cuota ${l.paidInstallments + 1}`} onPress={() => exec((s) => L.payLoanInstallment(s, l.id, acc!), 'Cuota pagada.')} /> : null}
             {action === 'prepay' ? (
               <>
-                <KV k="Comisión precancelación (2%)" v={money(l.outstanding * L.PREPAYMENT_FEE)} />
-                <KV k="Ahorro en intereses" v={money(sim.schedule.slice(l.paidInstallments).reduce((a, r) => a + r.interest, 0))} />
+                <KeyValue k="Comisión precancelación (2%)" v={money(l.outstanding * L.PREPAYMENT_FEE)} />
+                <KeyValue k="Ahorro en intereses" v={money(sim.schedule.slice(l.paidInstallments).reduce((a, r) => a + r.interest, 0))} />
                 <ConfirmButton title={`Precancelar ${money(l.outstanding * (1 + L.PREPAYMENT_FEE))}`} onConfirm={() => exec((s) => L.prepayLoan(s, l.id, acc!), 'Préstamo cancelado.')} />
               </>
             ) : null}
             {action === 'schedule' ? (
-              <View style={{ gap: 2 }}>
-                <T size={12} weight="700">N° · Cuota · Interés · Capital · Saldo</T>
-                {sim.schedule.map((r) => <T key={r.n} size={12} muted={r.n <= l.paidInstallments}>{r.n} · {r.quota.toFixed(2)} · {r.interest.toFixed(2)} · {r.capital.toFixed(2)} · {r.balance.toFixed(2)}{r.n <= l.paidInstallments ? ' ✓' : ''}</T>)}
-              </View>
+              <Stack gap="xxs">
+                <Text variant="caption" weight="bold">N° · Cuota · Interés · Capital · Saldo</Text>
+                {sim.schedule.map((r) => <Text key={r.n} variant="caption" tone={r.n <= l.paidInstallments ? 'muted' : 'default'}>{r.n} · {r.quota.toFixed(2)} · {r.interest.toFixed(2)} · {r.capital.toFixed(2)} · {r.balance.toFixed(2)}{r.n <= l.paidInstallments ? ' ✓' : ''}</Text>)}
+              </Stack>
             ) : null}
           </Card>
         );

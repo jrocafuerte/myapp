@@ -1,12 +1,12 @@
 import * as Clipboard from 'expo-clipboard';
 import React, { useState } from 'react';
-import { Share, View } from 'react-native';
+import { Share } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
 import * as L from '../../store/logic';
 import { useBank } from '../../store/BankContext';
 import type { Currency, Service } from '../../store/types';
 import {
-  AccountPicker, Banner, Button, Card, Chips, ConfirmButton, Empty, H, Input, KV, Row, Screen, T, ToggleRow, useAction,
+  AccountPicker, Banner, Button, Card, Chips, ConfirmButton, EmptyState, Inline, Input, KeyValue, ListItem, palette, Screen, Stack, Surface, Text, ToggleRow, useAction,
 } from '../../ui/kit';
 import { date, isoDay, money, parseAmount } from '../../utils/format';
 import type { Feature } from '../types';
@@ -37,7 +37,7 @@ function TransferOwn() {
   const n = parseAmount(amount);
   return (
     <Screen><Card>
-      <H>Entre mis cuentas</H>
+      <Text variant="heading">Entre mis cuentas</Text>
       <AccountPicker label="Desde" value={from} onChange={setFrom} />
       <AccountPicker label="Hacia" value={to} onChange={setTo} exclude={from} />
       <Input label={`Monto${fa ? ` (${fa.currency})` : ''}`} value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
@@ -58,10 +58,10 @@ function TransferThird({ favoritesOnly }: { favoritesOnly?: boolean }) {
   const remaining = state.settings.dailyTransferLimit - (state.transferredToday.date === isoDay() ? state.transferredToday.amount : 0);
   return (
     <Screen><Card>
-      <H>{favoritesOnly ? 'Transferir a favoritos' : 'Transferir a terceros'}</H>
+      <Text variant="heading">{favoritesOnly ? 'Transferir a favoritos' : 'Transferir a terceros'}</Text>
       <AccountPicker label="Desde" value={from} onChange={setFrom} />
       <BeneficiaryPicker value={ben} onChange={setBen} favoritesOnly={favoritesOnly} />
-      {favoritesOnly && !state.beneficiaries.some((b) => b.favorite) ? <Empty text="No tenés favoritos. Marcalos desde la agenda." /> : null}
+      {favoritesOnly && !state.beneficiaries.some((b) => b.favorite) ? <EmptyState text="No tenés favoritos. Marcalos desde la agenda." /> : null}
       <Input label="Monto" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" hint={`Disponible hoy según tu límite: ${money(remaining)}`} />
       <Input label="Concepto" value={concept} onChangeText={setConcept} placeholder="Ej: Varios" />
       {tf.field}
@@ -79,7 +79,7 @@ function TransferAlias() {
   const n = parseAmount(amount); const tf = useTwoFactor(n);
   return (
     <Screen><Card>
-      <H>Transferir por alias o número de cuenta</H>
+      <Text variant="heading">Transferir por alias o número de cuenta</Text>
       <AccountPicker label="Desde" value={from} onChange={setFrom} />
       <Input label="Alias o número de cuenta" value={key} onChangeText={setKey} autoCapitalize="none" placeholder="ej: carlos.mendez o 0045-1122-3344" />
       {found ? <Banner kind="success" text={`Titular: ${found.name} · ${found.bank}`} /> : key.length >= 6 ? <Input label="Nombre del titular" value={name} onChangeText={setName} /> : null}
@@ -99,13 +99,13 @@ function Beneficiaries({ mode }: { mode: 'list' | 'remove' | 'favorites' }) {
   return (
     <Screen>
       {feedback}
-      {list.length === 0 ? <Empty text="Tu agenda está vacía" /> : list.map((b) => (
+      {list.length === 0 ? <EmptyState text="Tu agenda está vacía" /> : list.map((b) => (
         <Card key={b.id}>
-          <Row icon={b.favorite ? 'star' : 'person-outline'} title={b.name} subtitle={`${b.bank} · ${b.alias || b.accountNumber}`} />
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+          <ListItem icon={b.favorite ? 'star' : 'person-outline'} title={b.name} subtitle={`${b.bank} · ${b.alias || b.accountNumber}`} />
+          <Inline gap="sm">
             <Button small title={b.favorite ? 'Quitar favorito' : 'Favorito'} icon={b.favorite ? 'star' : 'star-outline'} variant="secondary" onPress={() => exec((s) => L.toggleFavorite(s, b.id), 'Agenda actualizada.')} />
             {mode !== 'favorites' ? <ConfirmButton small title="Eliminar" variant="ghost" onConfirm={() => exec((s) => L.removeBeneficiary(s, b.id), `${b.name} eliminado.`)} /> : null}
-          </View>
+          </Inline>
         </Card>
       ))}
     </Screen>
@@ -117,7 +117,7 @@ function AddBeneficiary() {
   const [f, setF] = useState({ name: '', bank: '', accountNumber: '', alias: '', currency: 'USD' as Currency });
   return (
     <Screen><Card>
-      <H>Nuevo destinatario</H>
+      <Text variant="heading">Nuevo destinatario</Text>
       <Input label="Nombre y apellido" value={f.name} onChangeText={(name) => setF({ ...f, name })} />
       <Input label="Banco" value={f.bank} onChangeText={(bank) => setF({ ...f, bank })} />
       <Input label="Número de cuenta" value={f.accountNumber} onChangeText={(accountNumber) => setF({ ...f, accountNumber })} keyboardType="numbers-and-punctuation" />
@@ -138,7 +138,7 @@ function ScheduleTransfer({ recurring }: { recurring?: boolean }) {
   return (
     <Screen>
       <Card>
-        <H>{recurring ? 'Transferencia recurrente' : 'Programar transferencia'}</H>
+        <Text variant="heading">{recurring ? 'Transferencia recurrente' : 'Programar transferencia'}</Text>
         <AccountPicker label="Desde" value={from} onChange={setFrom} />
         <BeneficiaryPicker value={ben} onChange={setBen} />
         <Input label="Monto" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
@@ -149,7 +149,7 @@ function ScheduleTransfer({ recurring }: { recurring?: boolean }) {
         <Button title="Programar" icon="calendar-outline" disabled={!from || !ben} onPress={() => { if (exec((s) => L.scheduleTransfer(s, { fromId: from!, beneficiaryId: ben!, amount: parseAmount(amount), date: when, frequency: freq, concept }), 'Transferencia programada.')) setAmount(''); }} />
       </Card>
       <ScheduledList />
-      {list.length === 0 ? null : <T size={12} muted>Las programadas se ejecutan automáticamente al abrir la app en la fecha indicada.</T>}
+      {list.length === 0 ? null : <Text variant="caption" tone="muted">Las programadas se ejecutan automáticamente al abrir la app en la fecha indicada.</Text>}
     </Screen>
   );
 }
@@ -160,15 +160,15 @@ function ScheduledList() {
   const list = state.scheduled.filter((x) => x.active);
   return (
     <Card>
-      <H>Programadas activas</H>
+      <Text variant="heading">Programadas activas</Text>
       {feedback}
-      {list.length === 0 ? <Empty text="No tenés transferencias programadas" /> : list.map((x) => {
+      {list.length === 0 ? <EmptyState text="No tenés transferencias programadas" /> : list.map((x) => {
         const b = state.beneficiaries.find((y) => y.id === x.beneficiaryId);
         return (
-          <View key={x.id} style={{ gap: 6 }}>
-            <Row icon="repeat-outline" title={`${b?.name ?? '—'} · ${x.concept}`} subtitle={`${x.frequency} · próxima ${date(x.nextDate)}`} right={money(x.amount)} />
+          <Stack key={x.id} gap="sm">
+            <ListItem icon="repeat-outline" title={`${b?.name ?? '—'} · ${x.concept}`} subtitle={`${x.frequency} · próxima ${date(x.nextDate)}`} right={money(x.amount)} />
             <ConfirmButton small title="Cancelar" variant="ghost" onConfirm={() => exec((s) => L.cancelScheduled(s, x.id), 'Transferencia cancelada.')} />
-          </View>
+          </Stack>
         );
       })}
     </Card>
@@ -183,8 +183,8 @@ function TransferLimits() {
   const tf = useTwoFactor(10000);
   return (
     <Screen><Card>
-      <H>Límites de transferencia</H>
-      <KV k="Usado hoy" v={money(used)} />
+      <Text variant="heading">Límites de transferencia</Text>
+      <KeyValue k="Usado hoy" v={money(used)} />
       <Input label="Límite por operación (USD)" value={per} onChangeText={setPer} keyboardType="decimal-pad" />
       <Input label="Límite diario (USD, máx. 50,000)" value={daily} onChangeText={setDaily} keyboardType="decimal-pad" />
       {tf.field}
@@ -205,7 +205,7 @@ function International() {
   const tf = useTwoFactor(1000);
   return (
     <Screen><Card>
-      <H>Transferencia internacional (SWIFT)</H>
+      <Text variant="heading">Transferencia internacional (SWIFT)</Text>
       <AccountPicker label="Desde" value={from} onChange={setFrom} />
       <Input label="Beneficiario" value={f.name} onChangeText={(name) => setF({ ...f, name })} />
       <Input label="IBAN" value={f.iban} onChangeText={(iban) => setF({ ...f, iban })} autoCapitalize="characters" placeholder="ES9121000418450200051332" />
@@ -224,7 +224,6 @@ function International() {
 
 /** QR simple derivado del texto (visual; para producción usar una librería QR estándar). */
 export function PseudoQR({ value, size = 200 }: { value: string; size?: number }) {
-  const { colors } = useBank();
   const n = 25; const cell = size / n;
   let h = 0; for (const ch of value) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   const rects: React.ReactNode[] = [];
@@ -234,9 +233,10 @@ export function PseudoQR({ value, size = 200 }: { value: string; size?: number }
     const inFinder = (i < 8 && j < 8) || (i >= n - 8 && j < 8) || (i < 8 && j >= n - 8);
     h = (h * 1103515245 + 12345) >>> 0;
     const on = inFinder ? fs.some((f) => f(i, j)) : (h >> 16) % 2 === 0;
-    if (on) rects.push(<Rect key={`${i}-${j}`} x={i * cell} y={j * cell} width={cell} height={cell} fill="#000" />);
+    if (on) rects.push(<Rect key={`${i}-${j}`} x={i * cell} y={j * cell} width={cell} height={cell} fill={palette.black} />);
   }
-  return <View style={{ backgroundColor: '#fff', padding: 10, borderRadius: 12, alignSelf: 'center', borderWidth: 1, borderColor: colors.border }}><Svg width={size} height={size}>{rects}</Svg></View>;
+  // Un QR siempre se dibuja negro sobre blanco (también en modo oscuro) para que los lectores lo reconozcan.
+  return <Surface background="inverse" padding="md" radius="md" alignSelf="center" bordered><Svg width={size} height={size}>{rects}</Svg></Surface>;
 }
 
 function ReceiveQr() {
@@ -247,9 +247,9 @@ function ReceiveQr() {
     <Screen>
       <AccountPicker label="Cobrar en" value={acc} onChange={setAcc} />
       <Input label="Monto (opcional)" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
-      <Card style={{ alignItems: 'center' }}>
+      <Card align="center">
         <PseudoQR value={payload} />
-        <T size={11} muted selectable center>{payload}</T>
+        <Text variant="micro" tone="muted" selectable align="center">{payload}</Text>
       </Card>
       <Button title="Compartir link de cobro" icon="share-outline" onPress={() => Share.share({ message: payload }).catch(() => {})} />
       <Button title="Copiar" variant="secondary" onPress={() => Clipboard.setStringAsync(payload)} />
@@ -266,7 +266,7 @@ function RequestMoney() {
   return (
     <Screen>
       <Card>
-        <H>Pedir dinero</H>
+        <Text variant="heading">Pedir dinero</Text>
         <Input label="A quién" value={who} onChangeText={setWho} placeholder="Nombre o alias" />
         <Input label="Monto" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
         <Input label="Concepto" value={concept} onChangeText={setConcept} />
@@ -274,25 +274,25 @@ function RequestMoney() {
       </Card>
       {feedback}
       <Card>
-        <H>Solicitudes recibidas</H>
-        {incoming.length === 0 ? <Empty text="No tenés solicitudes pendientes" /> : (
+        <Text variant="heading">Solicitudes recibidas</Text>
+        {incoming.length === 0 ? <EmptyState text="No tenés solicitudes pendientes" /> : (
           <>
             <AccountPicker label="Pagar desde" value={payFrom} onChange={setPayFrom} />
             {incoming.map((r) => (
-              <View key={r.id} style={{ gap: 6 }}>
-                <Row icon="hand-left-outline" title={`${r.counterpart} · ${r.concept}`} subtitle={date(r.date)} right={money(r.amount)} />
-                <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Stack key={r.id} gap="sm">
+                <ListItem icon="hand-left-outline" title={`${r.counterpart} · ${r.concept}`} subtitle={date(r.date)} right={money(r.amount)} />
+                <Inline gap="sm">
                   <Button small title="Pagar" onPress={() => exec((s) => L.answerRequest(s, r.id, true, payFrom!), 'Solicitud pagada.')} />
                   <Button small title="Rechazar" variant="ghost" onPress={() => exec((s) => L.answerRequest(s, r.id, false, payFrom!), 'Solicitud rechazada.')} />
-                </View>
-              </View>
+                </Inline>
+              </Stack>
             ))}
           </>
         )}
       </Card>
       <Card>
-        <H>Enviadas</H>
-        {state.requests.filter((r) => r.direction === 'enviada').slice(0, 10).map((r) => <Row key={r.id} icon="send-outline" title={`${r.counterpart} · ${r.concept}`} subtitle={`${date(r.date)} · ${r.status}`} right={money(r.amount)} />)}
+        <Text variant="heading">Enviadas</Text>
+        {state.requests.filter((r) => r.direction === 'enviada').slice(0, 10).map((r) => <ListItem key={r.id} icon="send-outline" title={`${r.counterpart} · ${r.concept}`} subtitle={`${date(r.date)} · ${r.status}`} right={money(r.amount)} />)}
       </Card>
     </Screen>
   );
@@ -308,24 +308,24 @@ function SplitBillScreen() {
   return (
     <Screen>
       <Card>
-        <H>Dividir un gasto</H>
+        <Text variant="heading">Dividir un gasto</Text>
         <Input label="Concepto" value={concept} onChangeText={setConcept} placeholder="Cena, viaje…" />
         <Input label="Total" value={total} onChangeText={setTotal} keyboardType="decimal-pad" />
         <Input label="Personas (separadas por coma)" value={names} onChangeText={setNames} placeholder="Juan, Sofía, Pedro" />
         <ToggleRow title="Incluirme en la división" value={me} onChange={setMe} />
-        {people.length && share > 0 ? <T>Cada uno paga <T weight="700">{money(share)}</T></T> : null}
+        {people.length && share > 0 ? <Text>Cada uno paga <Text weight="bold">{money(share)}</Text></Text> : null}
         <Button title="Crear y enviar solicitudes" onPress={() => { if (exec((s) => L.createSplit(s, concept, parseAmount(total), people, me), 'Gasto dividido y solicitudes enviadas.')) { setTotal(''); setNames(''); } }} />
       </Card>
       {feedback}
       {state.splits.length ? <AccountPicker label="Acreditar pagos en" value={acc} onChange={setAcc} /> : null}
       {state.splits.map((sp) => (
         <Card key={sp.id}>
-          <H>{sp.concept} · {money(sp.total)}</H>
+          <Text variant="heading">{sp.concept} · {money(sp.total)}</Text>
           {sp.participants.map((p) => (
-            <View key={p.name} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <T>{p.paid ? '✅' : '⏳'} {p.name} · {money(p.share)}</T>
+            <Inline key={p.name} align="center" justify="between">
+              <Text>{p.paid ? '✅' : '⏳'} {p.name} · {money(p.share)}</Text>
               {!p.paid ? <Button small title="Marcar pagado" variant="secondary" onPress={() => exec((s) => L.markSplitPaid(s, sp.id, p.name, acc!), `${p.name} pagó.`)} /> : null}
-            </View>
+            </Inline>
           ))}
         </Card>
       ))}
@@ -343,9 +343,9 @@ function PayServices({ only }: { only?: Service['type'] }) {
     <Screen>
       <AccountPicker label="Pagar con" value={acc} onChange={setAcc} />
       {feedback}
-      {pending.length === 0 ? <Empty text="¡No tenés facturas pendientes!" icon="checkmark-done-outline" /> : pending.map((srv) => (
+      {pending.length === 0 ? <EmptyState text="¡No tenés facturas pendientes!" icon="checkmark-done-outline" /> : pending.map((srv) => (
         <Card key={srv.id}>
-          <Row icon="flash-outline" title={`${srv.company} (${srv.type})`} subtitle={`Cliente ${srv.customerNumber} · vence ${date(srv.dueDate)}`} right={money(srv.amountDue)} />
+          <ListItem icon="flash-outline" title={`${srv.company} (${srv.type})`} subtitle={`Cliente ${srv.customerNumber} · vence ${date(srv.dueDate)}`} right={money(srv.amountDue)} />
           <Button title={`Pagar ${money(srv.amountDue)}`} onPress={() => exec((s) => L.payService(s, srv.id, acc!), `Pagaste ${srv.company}.`)} />
         </Card>
       ))}
@@ -360,7 +360,7 @@ function AdheredServices() {
   return (
     <Screen>
       <Card>
-        <H>Adherir servicio</H>
+        <Text variant="heading">Adherir servicio</Text>
         <Chips label="Rubro" options={(['Luz', 'Agua', 'Gas', 'Internet', 'Telefonía', 'TV', 'Otro'] as Service['type'][]).map((t) => ({ label: t, value: t }))} value={f.type} onChange={(type) => setF({ ...f, type })} />
         <Input label="Empresa" value={f.company} onChangeText={(company) => setF({ ...f, company })} />
         <Input label="Número de cliente" value={f.customerNumber} onChangeText={(customerNumber) => setF({ ...f, customerNumber })} autoCapitalize="characters" />
@@ -368,12 +368,12 @@ function AdheredServices() {
       </Card>
       {feedback}
       <Card>
-        <H>Mis servicios</H>
+        <Text variant="heading">Mis servicios</Text>
         {state.services.map((srv) => (
-          <View key={srv.id} style={{ gap: 4 }}>
-            <Row icon="business-outline" title={`${srv.company} · ${srv.type}`} subtitle={`Cliente ${srv.customerNumber}${srv.autoDebit ? ' · débito automático' : ''}`} right={srv.amountDue ? money(srv.amountDue) : 'Al día'} />
+          <Stack key={srv.id} gap="xs">
+            <ListItem icon="business-outline" title={`${srv.company} · ${srv.type}`} subtitle={`Cliente ${srv.customerNumber}${srv.autoDebit ? ' · débito automático' : ''}`} right={srv.amountDue ? money(srv.amountDue) : 'Al día'} />
             <ConfirmButton small title="Quitar" variant="ghost" onConfirm={() => exec((s) => L.removeService(s, srv.id), 'Servicio eliminado.')} />
-          </View>
+          </Stack>
         ))}
       </Card>
     </Screen>
@@ -385,7 +385,7 @@ function MobileTopUp() {
   const [acc, setAcc] = useState(usePrimary()); const [op, setOp] = useState(L.TOPUP_OPERATORS[0]); const [phone, setPhone] = useState(''); const [amount, setAmount] = useState(10);
   return (
     <Screen><Card>
-      <H>Recarga de celular</H>
+      <Text variant="heading">Recarga de celular</Text>
       <AccountPicker value={acc} onChange={setAcc} />
       <Chips label="Operadora" options={L.TOPUP_OPERATORS.map((o) => ({ label: o, value: o }))} value={op} onChange={setOp} />
       <Input label="Número" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
@@ -401,7 +401,7 @@ function PayTaxes() {
   const [acc, setAcc] = useState(usePrimary()); const [tax, setTax] = useState<string>(L.TAXES[0]); const [taxId, setTaxId] = useState(''); const [amount, setAmount] = useState('');
   return (
     <Screen><Card>
-      <H>Pago de impuestos</H>
+      <Text variant="heading">Pago de impuestos</Text>
       <AccountPicker value={acc} onChange={setAcc} />
       <Chips label="Impuesto" options={L.TAXES.map((t) => ({ label: t, value: t as string }))} value={tax} onChange={setTax} />
       <Input label="Identificador (partida, patente, RUC…)" value={taxId} onChangeText={setTaxId} autoCapitalize="characters" />
@@ -431,19 +431,19 @@ function AutoDebit() {
 }
 
 function DueReminders() {
-  const { state, colors } = useBank();
+  const { state } = useBank();
   const { exec } = useAction();
   return (
     <Screen>
       <Card>
-        <H>Próximos vencimientos</H>
+        <Text variant="heading">Próximos vencimientos</Text>
         {state.services.filter((s) => s.amountDue > 0).sort((a, b) => a.dueDate.localeCompare(b.dueDate)).map((srv) => {
           const days = Math.ceil((new Date(`${srv.dueDate}T12:00:00`).getTime() - Date.now()) / 864e5);
-          return <Row key={srv.id} icon="alarm-outline" title={srv.company} subtitle={days < 0 ? `Vencido hace ${-days} días` : `Vence en ${days} días`} right={money(srv.amountDue)} rightColor={days <= 3 ? colors.danger : undefined} />;
+          return <ListItem key={srv.id} icon="alarm-outline" title={srv.company} subtitle={days < 0 ? `Vencido hace ${-days} días` : `Vence en ${days} días`} right={money(srv.amountDue)} rightTone={days <= 3 ? 'danger' : undefined} />;
         })}
       </Card>
       <Card>
-        <H>Recordatorios</H>
+        <Text variant="heading">Recordatorios</Text>
         {state.services.map((srv) => <ToggleRow key={srv.id} title={srv.company} subtitle="Avisar 3 días antes" value={srv.reminder} onChange={(v) => exec((s) => L.setReminder(s, srv.id, v), 'Listo')} />)}
       </Card>
     </Screen>
@@ -455,7 +455,7 @@ function PaymentHistory() {
   const pays = state.transactions.filter((t) => t.type === 'payment');
   return (
     <Screen><Card>
-      {pays.length === 0 ? <Empty text="Sin pagos" /> : pays.slice(0, 60).map((t) => <Row key={t.id} icon="receipt-outline" title={t.description} subtitle={`${date(t.date)} · ${t.reference}`} right={money(t.amount)} />)}
+      {pays.length === 0 ? <EmptyState text="Sin pagos" /> : pays.slice(0, 60).map((t) => <ListItem key={t.id} icon="receipt-outline" title={t.description} subtitle={`${date(t.date)} · ${t.reference}`} right={money(t.amount)} />)}
     </Card></Screen>
   );
 }
@@ -466,8 +466,8 @@ function PayQr() {
   const pre = /amount=([\d.]+)/.exec(code)?.[1];
   return (
     <Screen><Card>
-      <H>Pagar con QR</H>
-      <T muted size={13}>Escaneá el QR del comercio o pegá el código. (Probá con COMERCIO-CAFE01.)</T>
+      <Text variant="heading">Pagar con QR</Text>
+      <Text tone="muted" variant="bodySmall">Escaneá el QR del comercio o pegá el código. (Probá con COMERCIO-CAFE01.)</Text>
       <AccountPicker value={acc} onChange={setAcc} />
       <Input label="Código QR" value={code} onChangeText={setCode} autoCapitalize="characters" />
       <Input label="Monto" value={pre ?? amount} onChangeText={setAmount} keyboardType="decimal-pad" editable={!pre} />
@@ -482,7 +482,7 @@ function TransportTopUp() {
   const [acc, setAcc] = useState(usePrimary()); const [card, setCard] = useState(''); const [amount, setAmount] = useState('10');
   return (
     <Screen><Card>
-      <H>Recarga de transporte</H>
+      <Text variant="heading">Recarga de transporte</Text>
       <AccountPicker value={acc} onChange={setAcc} />
       <Input label="Número de tarjeta de transporte" value={card} onChangeText={setCard} keyboardType="number-pad" />
       <Input label="Monto (2-100)" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
@@ -498,18 +498,18 @@ function PayCreditCard() {
   const credit = state.cards.filter((c) => c.kind === 'credito' && c.status !== 'cancelada');
   const [cardId, setCardId] = useState(credit[0]?.id); const [acc, setAcc] = useState(usePrimary()); const [amount, setAmount] = useState('');
   const card = credit.find((c) => c.id === cardId);
-  if (!card) return <Screen><Empty text="No tenés tarjetas de crédito" /></Screen>;
+  if (!card) return <Screen><EmptyState text="No tenés tarjetas de crédito" /></Screen>;
   const st = L.creditCardStatement(card);
   return (
     <Screen><Card>
-      <H>Pagar tarjeta de crédito</H>
+      <Text variant="heading">Pagar tarjeta de crédito</Text>
       <Chips options={credit.map((c) => ({ label: `${c.brand} ••${c.number.slice(-4)}`, value: c.id }))} value={cardId} onChange={setCardId} />
-      <KV k="Saldo actual" v={money(st.balance)} /><KV k="Pago mínimo" v={money(st.minimum)} /><KV k="Vencimiento" v={date(st.dueDate)} />
+      <KeyValue k="Saldo actual" v={money(st.balance)} /><KeyValue k="Pago mínimo" v={money(st.minimum)} /><KeyValue k="Vencimiento" v={date(st.dueDate)} />
       <AccountPicker label="Pagar desde" value={acc} onChange={setAcc} />
-      <View style={{ flexDirection: 'row', gap: 8 }}>
+      <Inline gap="sm">
         <Button small title="Mínimo" variant="secondary" onPress={() => setAmount(String(Math.min(st.minimum, st.balance)))} />
         <Button small title="Total" variant="secondary" onPress={() => setAmount(String(st.balance))} />
-      </View>
+      </Inline>
       <Input label="Monto" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
       {feedback}
       <Button title="Pagar" onPress={() => { if (exec((s) => L.payCreditCard(s, card.id, acc!, parseAmount(amount)), 'Pago de tarjeta realizado.')) setAmount(''); }} />

@@ -14,7 +14,7 @@ Escaneá el QR con **Expo Go** (o presioná `w` para web, `a` para Android, `i` 
 **Usuario demo:** `demo` · **Contraseña:** `demo1234` · Token digital: Más → Token digital.
 
 ```bash
-npm test          # tests de lógica de negocio + conteo de funcionalidades
+npm test          # lógica de negocio, conteo de funcionalidades, contraste WCAG y límites del design system
 npm run typecheck # TypeScript estricto
 ```
 
@@ -28,7 +28,9 @@ npm run typecheck # TypeScript estricto
 | `src/store/seed.ts` | Datos de demostración (3 meses de movimientos, cuentas, tarjetas, préstamo, inversiones…) |
 | `src/features/modules/*.tsx` | Pantallas de las funcionalidades, agrupadas por módulo |
 | `src/features/registry.ts` | Catálogo único de funcionalidades (se navega y busca desde **Más**) |
-| `src/ui/` | Kit de componentes con tema claro/oscuro |
+| `src/design-system/` | **Design system reemplazable**: tokens, tema claro/oscuro, contrato de 25 componentes y adaptador por defecto. Ver [su README](src/design-system/README.md) |
+| `src/ui/` | Capa de UI de la app: reexporta el design system y agrega piezas bancarias (selector de cuentas, feedback de operaciones) |
+| `src/app/design-system.tsx` | Catálogo vivo de tokens y componentes (Más → Design system) |
 
 Procesos automáticos al abrir la app: ejecución de transferencias programadas, débitos automáticos, recordatorios de vencimientos y vencimiento de plazos fijos.
 
