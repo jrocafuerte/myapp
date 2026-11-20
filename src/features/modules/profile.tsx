@@ -104,7 +104,7 @@ function Offers() {
 }
 
 /* --------------------------------- Perfil -------------------------------- */
-const AVATAR_COLORS = ['#4F46E5', '#0EA5E9', '#059669', '#D97706', '#DC2626', '#DB2777', '#7C3AED', '#334155'];
+const AVATAR_COLORS = ['#0047AB', '#1F7AE0', '#059669', '#D97706', '#DC2626', '#DB2777', '#7C3AED', '#334155'];
 export function Avatar({ size = 56 }: { size?: number }) {
   const { state } = useBank();
   const initials = state.user.name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();

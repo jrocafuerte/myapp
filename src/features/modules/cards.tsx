@@ -11,7 +11,8 @@ import { date, groupCard, isoDay, maskCard, money, parseAmount } from '../../uti
 import type { Feature } from '../types';
 
 export function CardVisual({ card, reveal, onPress }: { card: BankCard; reveal?: boolean; onPress?: () => void }) {
-  const bg = card.status !== 'activa' ? '#475569' : card.virtual ? '#0EA5E9' : card.kind === 'credito' ? '#111827' : '#4F46E5';
+  const { colors } = useBank();
+  const bg = card.status !== 'activa' ? colors.cardInactive : card.virtual ? colors.cardVirtual : card.kind === 'credito' ? colors.cardCredit : colors.cardDebit;
   return (
     <Pressable onPress={onPress} disabled={!onPress} accessibilityLabel={`Tarjeta ${card.brand} terminada en ${card.number.slice(-4)}`}
       style={{ backgroundColor: bg, borderRadius: 18, padding: 18, gap: 18, aspectRatio: 1.6, justifyContent: 'space-between' }}>

@@ -35,7 +35,7 @@ export default function Login() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, justifyContent: 'center', padding: 20, gap: 20 }}>
         <View style={{ alignItems: 'center', gap: 6 }}>
           <T size={34} weight="800" color="#fff">Banco Plus</T>
-          <T color="#C7D2FE">Tu banco, en tu bolsillo</T>
+          <T color={colors.heroText}>Tu banco, en tu bolsillo</T>
         </View>
         <Card>
           {state.settings.pin ? <Chips options={[{ label: 'Contraseña', value: 'password' as const }, { label: 'PIN', value: 'pin' as const }]} value={mode} onChange={setMode} /> : null}

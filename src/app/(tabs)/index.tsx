@@ -26,7 +26,7 @@ export default function Home() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <Pressable onPress={() => router.push('/feature/profile')}><Avatar size={44} /></Pressable>
             <View style={{ flex: 1 }}>
-              <T color="#C7D2FE" size={13}>{t('hello')},</T>
+              <T color={colors.heroText} size={13}>{t('hello')},</T>
               <T color="#fff" size={18} weight="700">{state.user.name.split(' ')[0]}</T>
             </View>
             <Pressable accessibilityLabel="Ocultar saldos" onPress={() => run((s) => L.mut(s, (d) => { d.settings.hideBalances = !d.settings.hideBalances; }))} hitSlop={10}>
@@ -34,12 +34,12 @@ export default function Home() {
             </Pressable>
             <Pressable accessibilityLabel="Notificaciones" onPress={() => router.push('/feature/notification-center')} hitSlop={10}>
               <Ionicons name="notifications-outline" size={24} color="#fff" />
-              {unread ? <View style={{ position: 'absolute', right: -4, top: -4, backgroundColor: '#F87171', borderRadius: 8, minWidth: 16, alignItems: 'center' }}><T size={10} color="#fff" weight="700">{unread}</T></View> : null}
+              {unread ? <View style={{ position: 'absolute', right: -4, top: -4, backgroundColor: colors.danger, borderRadius: 8, minWidth: 16, alignItems: 'center' }}><T size={10} color="#fff" weight="700">{unread}</T></View> : null}
             </Pressable>
           </View>
           {state.settings.quickBalanceWidget ? (
             <Pressable onPress={() => router.push('/feature/balance-summary')}>
-              <T color="#C7D2FE">{t('total')} ({cur})</T>
+              <T color={colors.heroText}>{t('total')} ({cur})</T>
               <T color="#fff" size={34} weight="800">{money(L.totalBalance(state, cur), cur, { hidden })}</T>
             </Pressable>
           ) : null}

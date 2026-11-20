@@ -74,7 +74,7 @@ export function createSeed(): BankState {
     version: 1,
     user: {
       name: 'Ana García', email: 'ana.garcia@correo.com', phone: '+1 555 010 2030', address: 'Av. Principal 123',
-      documentId: 'ID-48291034', birthDate: '1992-04-18', avatarColor: '#4F46E5', username: 'demo', password: 'demo1234',
+      documentId: 'ID-48291034', birthDate: '1992-04-18', avatarColor: '#0047AB', username: 'demo', password: 'demo1234',
       referralCode: 'ANA-7Q2X', referrals: ['Luis P.'], points: 2450, emergencyLocked: false,
     },
     settings: {

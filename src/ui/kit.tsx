@@ -110,7 +110,7 @@ export function Row({ icon, title, subtitle, right, rightColor, onPress, danger 
   return (
     <Pressable onPress={onPress} disabled={!onPress} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, opacity: pressed ? 0.6 : 1 })}>
       {icon ? (
-        <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: danger ? '#FEE2E2' : colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: danger ? colors.dangerSoft : colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name={icon} size={19} color={danger ? colors.danger : colors.primary} />
         </View>
       ) : null}
