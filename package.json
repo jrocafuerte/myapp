@@ -20,7 +20,8 @@
     "react-native-safe-area-context": "~5.11.1",
     "react-native-screens": "~4.30.1",
     "react-native-svg": "^15.16.0",
-    "react-native-web": "^0.21.4"
+    "react-native-web": "^0.21.4",
+    "react-native-webview": "14.0.1"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
@@ -34,7 +35,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/store/__tests__/*.test.ts src/design-system/__tests__/*.test.ts"
+    "test": "tsx --test src/store/__tests__/*.test.ts src/design-system/__tests__/*.test.ts src/features/mfe/__tests__/*.test.ts shared/pagos-mfe/__tests__/*.test.ts",
+    "mfe:dev": "npm --prefix mfe/pagos-servicios run dev",
+    "mfe:build": "npm --prefix mfe/pagos-servicios run build"
   },
   "private": true
 }

@@ -9,6 +9,7 @@ import {
   AccountPicker, Banner, Button, Card, Chips, ConfirmButton, EmptyState, Inline, Input, KeyValue, ListItem, palette, Screen, Stack, Surface, Text, ToggleRow, useAction,
 } from '../../ui/kit';
 import { date, isoDay, money, parseAmount } from '../../utils/format';
+import { PagosServiciosMFE } from '../mfe/PagosServiciosMFE';
 import type { Feature } from '../types';
 
 const usePrimary = () => { const { state } = useBank(); return state.accounts.find((a) => a.isPrimary && !a.closed)?.id; };
@@ -334,52 +335,6 @@ function SplitBillScreen() {
 }
 
 /* --------------------------------- Pagos --------------------------------- */
-function PayServices({ only }: { only?: Service['type'] }) {
-  const { state } = useBank();
-  const { exec, feedback } = useAction();
-  const [acc, setAcc] = useState(usePrimary());
-  const pending = state.services.filter((s) => s.amountDue > 0 && (!only || s.type === only)).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
-  return (
-    <Screen>
-      <AccountPicker label="Pagar con" value={acc} onChange={setAcc} />
-      {feedback}
-      {pending.length === 0 ? <EmptyState text="¡No tenés facturas pendientes!" icon="checkmark-done-outline" /> : pending.map((srv) => (
-        <Card key={srv.id}>
-          <ListItem icon="flash-outline" title={`${srv.company} (${srv.type})`} subtitle={`Cliente ${srv.customerNumber} · vence ${date(srv.dueDate)}`} right={money(srv.amountDue)} />
-          <Button title={`Pagar ${money(srv.amountDue)}`} onPress={() => exec((s) => L.payService(s, srv.id, acc!), `Pagaste ${srv.company}.`)} />
-        </Card>
-      ))}
-    </Screen>
-  );
-}
-
-function AdheredServices() {
-  const { state } = useBank();
-  const { exec, feedback } = useAction();
-  const [f, setF] = useState({ company: '', type: 'Luz' as Service['type'], customerNumber: '' });
-  return (
-    <Screen>
-      <Card>
-        <Text variant="heading">Adherir servicio</Text>
-        <Chips label="Rubro" options={(['Luz', 'Agua', 'Gas', 'Internet', 'Telefonía', 'TV', 'Otro'] as Service['type'][]).map((t) => ({ label: t, value: t }))} value={f.type} onChange={(type) => setF({ ...f, type })} />
-        <Input label="Empresa" value={f.company} onChangeText={(company) => setF({ ...f, company })} />
-        <Input label="Número de cliente" value={f.customerNumber} onChangeText={(customerNumber) => setF({ ...f, customerNumber })} autoCapitalize="characters" />
-        <Button title="Adherir" onPress={() => { if (exec((s) => L.addService(s, f), 'Servicio adherido.')) setF({ ...f, company: '', customerNumber: '' }); }} />
-      </Card>
-      {feedback}
-      <Card>
-        <Text variant="heading">Mis servicios</Text>
-        {state.services.map((srv) => (
-          <Stack key={srv.id} gap="xs">
-            <ListItem icon="business-outline" title={`${srv.company} · ${srv.type}`} subtitle={`Cliente ${srv.customerNumber}${srv.autoDebit ? ' · débito automático' : ''}`} right={srv.amountDue ? money(srv.amountDue) : 'Al día'} />
-            <ConfirmButton small title="Quitar" variant="ghost" onConfirm={() => exec((s) => L.removeService(s, srv.id), 'Servicio eliminado.')} />
-          </Stack>
-        ))}
-      </Card>
-    </Screen>
-  );
-}
-
 function MobileTopUp() {
   const { exec, feedback } = useAction();
   const [acc, setAcc] = useState(usePrimary()); const [op, setOp] = useState(L.TOPUP_OPERATORS[0]); const [phone, setPhone] = useState(''); const [amount, setAmount] = useState(10);
@@ -408,54 +363,6 @@ function PayTaxes() {
       <Input label="Monto" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
       {feedback}
       <Button title="Pagar impuesto" onPress={() => { if (exec((s) => L.payTax(s, acc!, tax, taxId, parseAmount(amount)), 'Impuesto pagado.')) setAmount(''); }} />
-    </Card></Screen>
-  );
-}
-
-function AutoDebit() {
-  const { state } = useBank();
-  const { exec, feedback } = useAction();
-  const [acc, setAcc] = useState(usePrimary());
-  return (
-    <Screen>
-      <AccountPicker label="Cuenta para débitos" value={acc} onChange={setAcc} />
-      {feedback}
-      <Card>
-        {state.services.map((srv) => (
-          <ToggleRow key={srv.id} title={`${srv.company} (${srv.type})`} subtitle={srv.autoDebit ? `Debita de ${state.accounts.find((a) => a.id === srv.autoDebitAccountId)?.alias}` : 'Pago manual'}
-            value={srv.autoDebit} onChange={(v) => exec((s) => L.setAutoDebit(s, srv.id, v, acc), v ? 'Débito automático activado.' : 'Débito automático desactivado.')} />
-        ))}
-      </Card>
-    </Screen>
-  );
-}
-
-function DueReminders() {
-  const { state } = useBank();
-  const { exec } = useAction();
-  return (
-    <Screen>
-      <Card>
-        <Text variant="heading">Próximos vencimientos</Text>
-        {state.services.filter((s) => s.amountDue > 0).sort((a, b) => a.dueDate.localeCompare(b.dueDate)).map((srv) => {
-          const days = Math.ceil((new Date(`${srv.dueDate}T12:00:00`).getTime() - Date.now()) / 864e5);
-          return <ListItem key={srv.id} icon="alarm-outline" title={srv.company} subtitle={days < 0 ? `Vencido hace ${-days} días` : `Vence en ${days} días`} right={money(srv.amountDue)} rightTone={days <= 3 ? 'danger' : undefined} />;
-        })}
-      </Card>
-      <Card>
-        <Text variant="heading">Recordatorios</Text>
-        {state.services.map((srv) => <ToggleRow key={srv.id} title={srv.company} subtitle="Avisar 3 días antes" value={srv.reminder} onChange={(v) => exec((s) => L.setReminder(s, srv.id, v), 'Listo')} />)}
-      </Card>
-    </Screen>
-  );
-}
-
-function PaymentHistory() {
-  const { state } = useBank();
-  const pays = state.transactions.filter((t) => t.type === 'payment');
-  return (
-    <Screen><Card>
-      {pays.length === 0 ? <EmptyState text="Sin pagos" /> : pays.slice(0, 60).map((t) => <ListItem key={t.id} icon="receipt-outline" title={t.description} subtitle={`${date(t.date)} · ${t.reference}`} right={money(t.amount)} />)}
     </Card></Screen>
   );
 }
@@ -533,13 +440,13 @@ export const transferFeatures: Feature[] = [
   { id: 'request-money', module: 'transferencias', title: 'Pedir dinero', description: 'Enviá y respondé solicitudes', icon: 'hand-left-outline', Component: RequestMoney },
   { id: 'split-bill', module: 'transferencias', title: 'Dividir gastos', description: 'Repartí una cuenta entre amigos', icon: 'git-branch-outline', Component: SplitBillScreen },
 
-  { id: 'pay-services', module: 'pagos', title: 'Pago de servicios', description: 'Luz, agua, gas, internet', icon: 'flash-outline', Component: () => <PayServices /> },
-  { id: 'adhered-services', module: 'pagos', title: 'Servicios adheridos', description: 'Agregá o quitá servicios', icon: 'business-outline', Component: AdheredServices },
+  { id: 'pay-services', module: 'pagos', title: 'Pago de servicios', description: 'Luz, agua, gas, internet', icon: 'flash-outline', Component: () => <PagosServiciosMFE route="pagar" fallbackTitle="Pago de servicios" /> },
+  { id: 'adhered-services', module: 'pagos', title: 'Servicios adheridos', description: 'Agregá o quitá servicios', icon: 'business-outline', Component: () => <PagosServiciosMFE route="servicios" fallbackTitle="Servicios adheridos" /> },
   { id: 'mobile-topup', module: 'pagos', title: 'Recarga de celular', description: 'Todas las operadoras', icon: 'phone-portrait-outline', Component: MobileTopUp },
   { id: 'pay-taxes', module: 'pagos', title: 'Pago de impuestos', description: 'Predial, vehicular, renta', icon: 'library-outline', Component: PayTaxes },
-  { id: 'auto-debit', module: 'pagos', title: 'Débito automático', description: 'Pagá sin acordarte', icon: 'sync-outline', Component: AutoDebit },
-  { id: 'due-reminders', module: 'pagos', title: 'Recordatorios de vencimiento', description: 'Alertas antes de vencer', icon: 'alarm-outline', Component: DueReminders },
-  { id: 'payment-history', module: 'pagos', title: 'Historial de pagos', description: 'Todos tus pagos realizados', icon: 'time-outline', Component: PaymentHistory },
+  { id: 'auto-debit', module: 'pagos', title: 'Débito automático', description: 'Pagá sin acordarte', icon: 'sync-outline', Component: () => <PagosServiciosMFE route="debitoAutomatico" fallbackTitle="Débito automático" /> },
+  { id: 'due-reminders', module: 'pagos', title: 'Recordatorios de vencimiento', description: 'Alertas antes de vencer', icon: 'alarm-outline', Component: () => <PagosServiciosMFE route="vencimientos" fallbackTitle="Vencimientos" /> },
+  { id: 'payment-history', module: 'pagos', title: 'Historial de pagos', description: 'Todos tus pagos realizados', icon: 'time-outline', Component: () => <PagosServiciosMFE route="historial" fallbackTitle="Historial de pagos" /> },
   { id: 'pay-qr', module: 'pagos', title: 'Pagar con QR', description: 'En comercios adheridos', icon: 'scan-outline', Component: PayQr },
   { id: 'transport-topup', module: 'pagos', title: 'Recarga de transporte', description: 'Tarjeta de transporte público', icon: 'bus-outline', Component: TransportTopUp },
   { id: 'pay-credit-card', module: 'pagos', title: 'Pagar tarjeta de crédito', description: 'Mínimo, total u otro monto', icon: 'card-outline', Component: PayCreditCard },

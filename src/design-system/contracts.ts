@@ -96,6 +96,8 @@ interface BoxProps {
   justify?: 'start' | 'center' | 'end' | 'between';
   flex?: boolean;
   background?: ColorToken;
+  /** Cubre por completo a su contenedor (pantallas de carga sobre otro contenido). */
+  overlay?: boolean;
 }
 export type StackProps = BoxProps;
 export interface InlineProps extends BoxProps { wrap?: boolean }

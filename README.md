@@ -9,6 +9,12 @@ npm install
 npx expo start
 ```
 
+El módulo de Pago de servicios es un micro frontend aparte. Para usarlo en desarrollo:
+
+```bash
+npm run mfe:dev   # en otra terminal; sirve mfe/pagos-servicios en http://localhost:3001
+```
+
 Escaneá el QR con **Expo Go** (o presioná `w` para web, `a` para Android, `i` para iOS).
 
 **Usuario demo:** `demo` · **Contraseña:** `demo1234` · Token digital: Más → Token digital.
@@ -30,6 +36,8 @@ npm run typecheck # TypeScript estricto
 | `src/features/registry.ts` | Catálogo único de funcionalidades (se navega y busca desde **Más**) |
 | `src/design-system/` | **Design system reemplazable**: tokens, tema claro/oscuro, contrato de 25 componentes y adaptador por defecto. Ver [su README](src/design-system/README.md) |
 | `src/ui/` | Capa de UI de la app: reexporta el design system y agrega piezas bancarias (selector de cuentas, feedback de operaciones) |
+| `mfe/pagos-servicios/` | **Micro frontend** de Pago de servicios (Next.js), embebido en la app con WebView. Ver [su README](mfe/pagos-servicios/README.md) |
+| `shared/pagos-mfe/` | Contrato tipado entre la app y el micro frontend |
 | `src/app/design-system.tsx` | Catálogo vivo de tokens y componentes (Más → Design system) |
 
 Procesos automáticos al abrir la app: ejecución de transferencias programadas, débitos automáticos, recordatorios de vencimientos y vencimiento de plazos fijos.
