@@ -66,7 +66,7 @@ function ThresholdAlert({ field, title, hint }: { field: 'lowBalanceThreshold' |
       <KeyValue k="Valor actual" v={money(state.settings[field])} />
       <Input label="Nuevo umbral" value={v} onChangeText={setV} keyboardType="decimal-pad" />
       {feedback}
-      <Button title="Guardar" onPress={() => exec((s) => L.mut(s, (d) => { const n = parseAmount(v); if (!(n >= 0)) throw new L.BankError('Monto inválido.'); d.settings[field] = n; }), 'Alerta actualizada.')} />
+      <Button title="Guardar" onPress={() => exec((s) => L.mut(s, (d) => { const n = parseAmount(v); if (!(n >= 0)) throw new L.BankError('monto_invalido'); d.settings[field] = n; }), 'Alerta actualizada.')} />
     </Card></Screen>
   );
 }

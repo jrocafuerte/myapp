@@ -1,3 +1,4 @@
+import { useRemoteConfig } from '../remote-config/RemoteConfigProvider';
 import { useBank } from '../store/BankContext';
 
 const dict = {
@@ -9,7 +10,16 @@ const dict = {
     search: 'Search', all: 'All features', logout: 'Log out' },
 };
 export type TKey = keyof typeof dict.es;
+/** Claves que la configuración remota puede reemplazar en la sección "texts". */
+export const TEXT_KEYS = Object.keys(dict.es) as TKey[];
+
+/**
+ * Texto de interfaz en el idioma elegido. Si la configuración remota define la clave,
+ * se usa ese texto (en cualquier idioma) o, si existe, `<clave>.<idioma>` (p. ej. "home.en").
+ */
 export function useT() {
   const { state } = useBank();
-  return (k: TKey) => dict[state.settings.language][k];
+  const { config } = useRemoteConfig();
+  const lang = state.settings.language;
+  return (k: TKey) => config.texts?.[`${k}.${lang}`] ?? config.texts?.[k] ?? dict[lang][k];
 }

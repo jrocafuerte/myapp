@@ -5,8 +5,17 @@
 import type {
   Account, AppNotification, BankState, Card, Category, Currency, Insurance, Loan, Service, Transaction, TxType,
 } from './types';
+import { DEFAULT_MESSAGES, formatMessage, type MessageCode, type MessageParams } from '../remote-config/messages';
 
-export class BankError extends Error {}
+/**
+ * Error de negocio con un CÓDIGO estable. `message` es el texto por defecto;
+ * la app muestra el texto de la configuración remota si existe (ver src/remote-config).
+ */
+export class BankError extends Error {
+  constructor(readonly code: MessageCode, readonly params: MessageParams = {}) {
+    super(formatMessage(DEFAULT_MESSAGES[code], params));
+  }
+}
 
 export const uid = (p = 'id') => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
@@ -16,10 +25,10 @@ export const mut = (s: BankState, fn: (d: BankState) => void): BankState => {
   return d;
 };
 const round2 = (n: number) => Math.round(n * 100) / 100;
-function assert(cond: unknown, msg: string): asserts cond {
-  if (!cond) throw new BankError(msg);
+function assert(cond: unknown, code: MessageCode, params?: MessageParams): asserts cond {
+  if (!cond) throw new BankError(code, params);
 }
-const positive = (amount: number) => assert(Number.isFinite(amount) && amount > 0, 'Ingresá un monto mayor a cero.');
+const positive = (amount: number) => assert(Number.isFinite(amount) && amount > 0, 'ingresa_monto_mayor_cero');
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
 /* ----------------------------- Tipos de cambio ---------------------------- */
@@ -48,13 +57,13 @@ export function autoCategory(description: string): Category {
 
 export const getAccount = (s: BankState, id: string): Account => {
   const a = s.accounts.find((x) => x.id === id);
-  assert(a, 'La cuenta no existe.');
-  assert(!a.closed, 'La cuenta está cerrada.');
+  assert(a, 'cuenta_no_existe');
+  assert(!a.closed, 'cuenta_esta_cerrada');
   return a;
 };
 const getCard = (s: BankState, id: string): Card => {
   const c = s.cards.find((x) => x.id === id);
-  assert(c, 'La tarjeta no existe.');
+  assert(c, 'tarjeta_no_existe');
   return c;
 };
 const notify = (d: BankState, kind: AppNotification['kind'], title: string, body: string) => {
@@ -81,9 +90,9 @@ function addTx(d: BankState, accountId: string, amount: number, description: str
 
 function debit(d: BankState, accountId: string, amount: number, description: string, type: TxType, extra: Partial<Transaction> = {}) {
   positive(amount);
-  assert(!d.user.emergencyLocked, 'Tu cuenta está bloqueada por emergencia. Desbloqueala desde Seguridad.');
+  assert(!d.user.emergencyLocked, 'cuenta_esta_bloqueada_emergencia');
   const acc = getAccount(d, accountId);
-  assert(acc.balance >= amount, `Saldo insuficiente en ${acc.alias}.`);
+  assert(acc.balance >= amount, 'saldo_insuficiente', { alias: acc.alias });
   acc.balance = round2(acc.balance - amount);
   const tx = addTx(d, accountId, -amount, description, type, extra);
   // Redondeo automático hacia una meta de ahorro
@@ -108,9 +117,8 @@ function credit(d: BankState, accountId: string, amount: number, description: st
 
 function checkTransferLimits(d: BankState, amountUsd: number) {
   if (d.transferredToday.date !== todayKey()) d.transferredToday = { date: todayKey(), amount: 0 };
-  assert(amountUsd <= d.settings.perTransferLimit, `Supera tu límite por operación (${d.settings.perTransferLimit} USD).`);
-  assert(d.transferredToday.amount + amountUsd <= d.settings.dailyTransferLimit,
-    `Supera tu límite diario (${d.settings.dailyTransferLimit} USD). Disponible hoy: ${round2(d.settings.dailyTransferLimit - d.transferredToday.amount)} USD.`);
+  assert(amountUsd <= d.settings.perTransferLimit, 'supera_limite_operacion_usd', { limit: d.settings.perTransferLimit });
+  assert(d.transferredToday.amount + amountUsd <= d.settings.dailyTransferLimit, 'supera_limite_diario_usd', { limit: d.settings.dailyTransferLimit, available: round2(d.settings.dailyTransferLimit - d.transferredToday.amount) });
   d.transferredToday.amount = round2(d.transferredToday.amount + amountUsd);
 }
 
@@ -127,37 +135,37 @@ export const recordLogin = (s: BankState, method: 'biometría' | 'PIN') =>
   mut(s, (d) => { d.loginHistory.unshift({ id: uid('l'), date: new Date().toISOString(), device: 'Este dispositivo', method, success: true }); });
 
 export const changePassword = (s: BankState, current: string, next: string, confirm: string) => mut(s, (d) => {
-  assert(current === d.user.password, 'La contraseña actual es incorrecta.');
-  assert(next.length >= 8, 'La nueva contraseña debe tener al menos 8 caracteres.');
-  assert(/\d/.test(next) && /[a-zA-Z]/.test(next), 'Debe combinar letras y números.');
-  assert(next === confirm, 'Las contraseñas no coinciden.');
-  assert(next !== current, 'La nueva contraseña debe ser distinta a la actual.');
+  assert(current === d.user.password, 'contrasena_actual_incorrecta');
+  assert(next.length >= 8, 'nueva_contrasena_debe_tener');
+  assert(/\d/.test(next) && /[a-zA-Z]/.test(next), 'debe_combinar_letras_numeros');
+  assert(next === confirm, 'contrasenas_no_coinciden');
+  assert(next !== current, 'nueva_contrasena_debe_ser');
   d.user.password = next;
   notify(d, 'seguridad', 'Contraseña actualizada', 'Tu contraseña se cambió correctamente.');
 });
 
 export const setPin = (s: BankState, pin: string, confirm: string) => mut(s, (d) => {
-  assert(/^\d{4,6}$/.test(pin), 'El PIN debe tener entre 4 y 6 dígitos.');
-  assert(!/^(\d)\1+$/.test(pin) && !'0123456789'.includes(pin), 'Elegí un PIN menos predecible.');
-  assert(pin === confirm, 'Los PIN no coinciden.');
+  assert(/^\d{4,6}$/.test(pin), 'pin_debe_tener_entre');
+  assert(!/^(\d)\1+$/.test(pin) && !'0123456789'.includes(pin), 'elegi_pin_menos_predecible');
+  assert(pin === confirm, 'pin_no_coinciden');
   d.settings.pin = pin;
 });
 
 export const setSecurityQuestions = (s: BankState, qs: { question: string; answer: string }[]) => mut(s, (d) => {
-  assert(qs.length >= 2 && qs.every((q) => q.question && q.answer.trim().length >= 2), 'Completá al menos dos preguntas con sus respuestas.');
+  assert(qs.length >= 2 && qs.every((q) => q.question && q.answer.trim().length >= 2), 'completa_minimo_dos_preguntas');
   d.settings.securityQuestions = qs.map((q) => ({ question: q.question, answer: q.answer.trim().toLowerCase() }));
 });
 
 export const revokeDevice = (s: BankState, id: string) => mut(s, (d) => {
   const dev = d.devices.find((x) => x.id === id);
-  assert(dev, 'Dispositivo no encontrado.');
-  assert(!dev.current, 'No podés desvincular el dispositivo actual.');
+  assert(dev, 'dispositivo_no_encontrado');
+  assert(!dev.current, 'no_podes_desvincular_dispositivo');
   d.devices = d.devices.filter((x) => x.id !== id);
   notify(d, 'seguridad', 'Dispositivo desvinculado', `${dev.name} ya no tiene acceso.`);
 });
 
 export const setEmergencyLock = (s: BankState, locked: boolean, password?: string) => mut(s, (d) => {
-  if (!locked) assert(password === d.user.password, 'Contraseña incorrecta.');
+  if (!locked) assert(password === d.user.password, 'contrasena_incorrecta');
   d.user.emergencyLocked = locked;
   d.cards.forEach((c) => { if (c.status !== 'cancelada') c.status = locked ? 'bloqueada' : 'activa'; });
   notify(d, 'seguridad', locked ? 'Bloqueo de emergencia activado' : 'Bloqueo de emergencia desactivado',
@@ -174,8 +182,8 @@ export function otpCode(seed: string, t = Date.now()) {
 
 /* -------------------------------- Cuentas -------------------------------- */
 export const openAccount = (s: BankState, type: Account['type'], currency: Currency, alias: string) => mut(s, (d) => {
-  assert(alias.trim().length >= 3, 'El alias debe tener al menos 3 caracteres.');
-  assert(d.accounts.filter((a) => !a.closed).length < 8, 'Alcanzaste el máximo de 8 cuentas.');
+  assert(alias.trim().length >= 3, 'alias_debe_tener_minimo');
+  assert(d.accounts.filter((a) => !a.closed).length < 8, 'alcanzaste_maximo_8_cuentas');
   const n = Math.floor(1000 + Math.random() * 8999);
   d.accounts.push({
     id: uid('acc'), alias: alias.trim(), type, currency, balance: 0, number: `0012-${n}-${Math.floor(1000 + Math.random() * 8999)}`,
@@ -184,7 +192,7 @@ export const openAccount = (s: BankState, type: Account['type'], currency: Curre
   notify(d, 'sistema', 'Cuenta abierta', `Tu cuenta "${alias.trim()}" en ${currency} ya está disponible.`);
 });
 export const renameAccount = (s: BankState, id: string, alias: string) => mut(s, (d) => {
-  assert(alias.trim().length >= 3 && alias.trim().length <= 24, 'El alias debe tener entre 3 y 24 caracteres.');
+  assert(alias.trim().length >= 3 && alias.trim().length <= 24, 'alias_debe_tener_entre');
   getAccount(d, id).alias = alias.trim();
 });
 export const setPrimaryAccount = (s: BankState, id: string) => mut(s, (d) => {
@@ -193,9 +201,9 @@ export const setPrimaryAccount = (s: BankState, id: string) => mut(s, (d) => {
 });
 export const closeAccount = (s: BankState, id: string) => mut(s, (d) => {
   const a = getAccount(d, id);
-  assert(!a.isPrimary, 'No podés cerrar tu cuenta principal. Elegí otra principal primero.');
-  assert(a.balance === 0, 'La cuenta debe tener saldo cero para cerrarla. Transferí el saldo primero.');
-  assert(!d.cards.some((c) => c.accountId === id && c.status !== 'cancelada'), 'Hay tarjetas asociadas activas a esta cuenta.');
+  assert(!a.isPrimary, 'no_podes_cerrar_cuenta');
+  assert(a.balance === 0, 'cuenta_debe_tener_saldo');
+  assert(!d.cards.some((c) => c.accountId === id && c.status !== 'cancelada'), 'hay_tarjetas_asociadas_activas');
   a.closed = true;
 });
 export const totalBalance = (s: BankState, currency: Currency) =>
@@ -204,12 +212,12 @@ export const totalBalance = (s: BankState, currency: Currency) =>
 /* ------------------------------ Movimientos ------------------------------ */
 export const setTxCategory = (s: BankState, id: string, category: Category) => mut(s, (d) => {
   const t = d.transactions.find((x) => x.id === id);
-  assert(t, 'Movimiento no encontrado.');
+  assert(t, 'movimiento_no_encontrado');
   t.category = category;
 });
 export const setTxNote = (s: BankState, id: string, note: string) => mut(s, (d) => {
   const t = d.transactions.find((x) => x.id === id);
-  assert(t, 'Movimiento no encontrado.');
+  assert(t, 'movimiento_no_encontrado');
   t.note = note.trim().slice(0, 140) || undefined;
 });
 export function filterTx(s: BankState, f: { q?: string; kind?: 'todos' | 'ingresos' | 'egresos'; accountId?: string; category?: Category; month?: string }) {
@@ -274,7 +282,7 @@ export function detectRecurring(s: BankState) {
 
 /* ----------------------------- Transferencias ---------------------------- */
 export const transferOwn = (s: BankState, fromId: string, toId: string, amount: number, concept = '') => mut(s, (d) => {
-  assert(fromId !== toId, 'Elegí cuentas distintas.');
+  assert(fromId !== toId, 'elegi_cuentas_distintas');
   const from = getAccount(d, fromId); const to = getAccount(d, toId);
   const { rate } = fxQuote(from.currency, to.currency);
   const received = round2(amount * rate);
@@ -284,7 +292,7 @@ export const transferOwn = (s: BankState, fromId: string, toId: string, amount: 
 
 export const transferToBeneficiary = (s: BankState, fromId: string, beneficiaryId: string, amount: number, concept = '') => mut(s, (d) => {
   const b = d.beneficiaries.find((x) => x.id === beneficiaryId);
-  assert(b, 'Beneficiario no encontrado.');
+  assert(b, 'beneficiario_no_encontrado');
   const from = getAccount(d, fromId);
   checkTransferLimits(d, convert(amount, from.currency, 'USD'));
   debit(d, fromId, amount, `Transferencia a ${b.name}${concept ? ` · ${concept}` : ''}`, 'transfer', { counterpart: b.name, category: 'Transferencias' });
@@ -299,11 +307,11 @@ export const findByAliasOrNumber = (s: BankState, key: string) => {
 
 export const transferByAlias = (s: BankState, fromId: string, key: string, name: string, amount: number, concept = '', save = false) => {
   const k = key.trim();
-  assert(/^[a-zA-Z0-9.\-]{6,30}$/.test(k), 'Alias o número de cuenta inválido (6-30 caracteres).');
+  assert(/^[a-zA-Z0-9.\-]{6,30}$/.test(k), 'alias_numero_cuenta_invalido');
   let state = s;
   let ben = findByAliasOrNumber(state, k);
   if (!ben) {
-    assert(name.trim().length >= 3, 'Indicá el nombre del titular.');
+    assert(name.trim().length >= 3, 'indica_nombre_titular');
     state = addBeneficiary(state, { name, bank: 'Otro banco', accountNumber: /\d/.test(k) && !k.includes('.') ? k : '-', alias: k.includes('.') ? k : '', currency: 'USD' });
     ben = state.beneficiaries[state.beneficiaries.length - 1];
   }
@@ -314,10 +322,10 @@ export const transferByAlias = (s: BankState, fromId: string, key: string, name:
 
 export const INTL_FEE_USD = 15;
 export const transferInternational = (s: BankState, fromId: string, p: { name: string; iban: string; swift: string; country: string; currency: Currency; amount: number; concept: string }) => mut(s, (d) => {
-  assert(/^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(p.swift.toUpperCase()), 'Código SWIFT/BIC inválido (8 u 11 caracteres).');
-  assert(/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(p.iban.replace(/\s/g, '').toUpperCase()), 'IBAN inválido.');
-  assert(p.name.trim().length >= 3, 'Indicá el nombre del beneficiario.');
-  assert(p.concept.trim().length >= 3, 'El motivo es obligatorio para transferencias internacionales.');
+  assert(/^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(p.swift.toUpperCase()), 'codigo_swift_bic_invalido');
+  assert(/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(p.iban.replace(/\s/g, '').toUpperCase()), 'iban_invalido');
+  assert(p.name.trim().length >= 3, 'indica_nombre_beneficiario');
+  assert(p.concept.trim().length >= 3, 'motivo_obligatorio_transferencias_internacionales');
   positive(p.amount);
   const from = getAccount(d, fromId);
   const { rate } = fxQuote(from.currency, p.currency);
@@ -329,28 +337,28 @@ export const transferInternational = (s: BankState, fromId: string, p: { name: s
 });
 
 export const addBeneficiary = (s: BankState, b: { name: string; bank: string; accountNumber: string; alias: string; currency: Currency }) => mut(s, (d) => {
-  assert(b.name.trim().length >= 3, 'El nombre debe tener al menos 3 caracteres.');
-  assert(b.accountNumber.trim() || b.alias.trim(), 'Ingresá número de cuenta o alias.');
-  if (b.accountNumber.trim() && b.accountNumber !== '-') assert(/^[\d-]{8,24}$/.test(b.accountNumber.trim()), 'Número de cuenta inválido.');
-  assert(!d.beneficiaries.some((x) => (b.alias && x.alias === b.alias.trim()) || (b.accountNumber !== '-' && x.accountNumber === b.accountNumber.trim())), 'Ese beneficiario ya está en tu agenda.');
+  assert(b.name.trim().length >= 3, 'nombre_debe_tener_minimo');
+  assert(b.accountNumber.trim() || b.alias.trim(), 'ingresa_numero_cuenta_alias');
+  if (b.accountNumber.trim() && b.accountNumber !== '-') assert(/^[\d-]{8,24}$/.test(b.accountNumber.trim()), 'numero_cuenta_invalido');
+  assert(!d.beneficiaries.some((x) => (b.alias && x.alias === b.alias.trim()) || (b.accountNumber !== '-' && x.accountNumber === b.accountNumber.trim())), 'ese_beneficiario_ya_esta');
   d.beneficiaries.push({ id: uid('ben'), name: b.name.trim(), bank: b.bank.trim() || 'Otro banco', accountNumber: b.accountNumber.trim(), alias: b.alias.trim(), currency: b.currency, favorite: false });
 });
 export const removeBeneficiary = (s: BankState, id: string) => mut(s, (d) => {
-  assert(!d.scheduled.some((x) => x.beneficiaryId === id && x.active), 'Tiene transferencias programadas activas. Cancelalas primero.');
+  assert(!d.scheduled.some((x) => x.beneficiaryId === id && x.active), 'tiene_transferencias_programadas_activas');
   d.beneficiaries = d.beneficiaries.filter((b) => b.id !== id);
 });
 export const toggleFavorite = (s: BankState, id: string) => mut(s, (d) => {
-  const b = d.beneficiaries.find((x) => x.id === id); assert(b, 'Beneficiario no encontrado.'); b.favorite = !b.favorite;
+  const b = d.beneficiaries.find((x) => x.id === id); assert(b, 'beneficiario_no_encontrado'); b.favorite = !b.favorite;
 });
 export const scheduleTransfer = (s: BankState, p: { fromId: string; beneficiaryId: string; amount: number; date: string; frequency: 'unica' | 'semanal' | 'mensual'; concept: string }) => mut(s, (d) => {
   positive(p.amount);
   getAccount(d, p.fromId);
-  assert(d.beneficiaries.some((b) => b.id === p.beneficiaryId), 'Elegí un beneficiario.');
-  assert(/^\d{4}-\d{2}-\d{2}$/.test(p.date) && p.date > todayKey(), 'La fecha debe ser futura (AAAA-MM-DD).');
+  assert(d.beneficiaries.some((b) => b.id === p.beneficiaryId), 'elegi_beneficiario');
+  assert(/^\d{4}-\d{2}-\d{2}$/.test(p.date) && p.date > todayKey(), 'fecha_debe_ser_futura');
   d.scheduled.push({ id: uid('sch'), fromId: p.fromId, beneficiaryId: p.beneficiaryId, amount: p.amount, nextDate: p.date, frequency: p.frequency, concept: p.concept || 'Programada', active: true });
 });
 export const cancelScheduled = (s: BankState, id: string) => mut(s, (d) => {
-  const x = d.scheduled.find((t) => t.id === id); assert(x, 'Transferencia no encontrada.'); x.active = false;
+  const x = d.scheduled.find((t) => t.id === id); assert(x, 'transferencia_no_encontrada'); x.active = false;
 });
 /** Ejecuta las programadas vencidas (se llama al abrir la app). */
 export function runScheduled(s: BankState): BankState {
@@ -375,19 +383,19 @@ export function runScheduled(s: BankState): BankState {
 }
 export const setTransferLimits = (s: BankState, perTransfer: number, daily: number) => mut(s, (d) => {
   positive(perTransfer); positive(daily);
-  assert(perTransfer <= daily, 'El límite por operación no puede superar el diario.');
-  assert(daily <= 50000, 'El límite diario máximo es 50,000 USD.');
+  assert(perTransfer <= daily, 'limite_operacion_no_puede');
+  assert(daily <= 50000, 'limite_diario_maximo_50');
   d.settings.perTransferLimit = perTransfer; d.settings.dailyTransferLimit = daily;
   notify(d, 'seguridad', 'Límites actualizados', `Por operación: ${perTransfer} USD · Diario: ${daily} USD.`);
 });
 
 export const requestMoney = (s: BankState, counterpart: string, amount: number, concept: string) => mut(s, (d) => {
-  positive(amount); assert(counterpart.trim().length >= 3, 'Indicá a quién le pedís dinero.');
+  positive(amount); assert(counterpart.trim().length >= 3, 'indica_quien_le_pedis');
   d.requests.unshift({ id: uid('req'), direction: 'enviada', counterpart: counterpart.trim(), amount, concept: concept.trim() || 'Solicitud', date: new Date().toISOString(), status: 'pendiente' });
 });
 export const answerRequest = (s: BankState, id: string, accept: boolean, fromId: string) => {
   const r = s.requests.find((x) => x.id === id);
-  assert(r && r.direction === 'recibida' && r.status === 'pendiente', 'Solicitud no disponible.');
+  assert(r && r.direction === 'recibida' && r.status === 'pendiente', 'solicitud_no_disponible');
   let state = s;
   if (accept) state = mut(state, (d) => debit(d, fromId, r.amount, `Pago a ${r.counterpart} · ${r.concept}`, 'transfer', { counterpart: r.counterpart, category: 'Transferencias' }));
   return mut(state, (d) => { d.requests.find((x) => x.id === id)!.status = accept ? 'pagada' : 'rechazada'; });
@@ -395,15 +403,15 @@ export const answerRequest = (s: BankState, id: string, accept: boolean, fromId:
 export const createSplit = (s: BankState, concept: string, total: number, names: string[], includeMe = true) => mut(s, (d) => {
   positive(total);
   const people = names.map((n) => n.trim()).filter(Boolean);
-  assert(people.length >= 1, 'Agregá al menos una persona.');
+  assert(people.length >= 1, 'agrega_minimo_persona');
   const count = people.length + (includeMe ? 1 : 0);
   const share = round2(total / count);
   d.splits.unshift({ id: uid('spl'), concept: concept.trim() || 'Gasto compartido', total, date: new Date().toISOString(), participants: people.map((name) => ({ name, share, paid: false })) });
   people.forEach((name) => d.requests.unshift({ id: uid('req'), direction: 'enviada', counterpart: name, amount: share, concept: concept || 'Gasto compartido', date: new Date().toISOString(), status: 'pendiente' }));
 });
 export const markSplitPaid = (s: BankState, splitId: string, name: string, accountId: string) => mut(s, (d) => {
-  const sp = d.splits.find((x) => x.id === splitId); assert(sp, 'Gasto no encontrado.');
-  const p = sp.participants.find((x) => x.name === name); assert(p && !p.paid, 'Ya figura como pagado.');
+  const sp = d.splits.find((x) => x.id === splitId); assert(sp, 'gasto_no_encontrado');
+  const p = sp.participants.find((x) => x.name === name); assert(p && !p.paid, 'ya_figura_como_pagado');
   p.paid = true; credit(d, accountId, p.share, `${name} pagó su parte · ${sp.concept}`, 'transfer', { counterpart: name, category: 'Transferencias' });
 });
 export const qrPayload = (s: BankState, accountId: string, amount?: number) => {
@@ -412,7 +420,7 @@ export const qrPayload = (s: BankState, accountId: string, amount?: number) => {
 };
 export const payQr = (s: BankState, accountId: string, code: string, amount: number) => mut(s, (d) => {
   const m = /^(?:BANCOPLUS:\/\/pay\?to=(\d+)&name=([^&]+)|COMERCIO-([A-Z0-9]{4,}))/i.exec(code.trim());
-  assert(m, 'Código QR inválido. Formato: COMERCIO-XXXX o enlace BANCOPLUS://pay');
+  assert(m, 'codigo_qr_invalido_formato');
   const name = m[2] ? decodeURIComponent(m[2]) : `Comercio ${m[3]}`;
   debit(d, accountId, amount, `Pago QR a ${name}`, 'payment', { counterpart: name, category: 'Compras' });
   d.user.points += Math.floor(amount);
@@ -420,27 +428,27 @@ export const payQr = (s: BankState, accountId: string, code: string, amount: num
 
 /* --------------------------------- Pagos --------------------------------- */
 export const payService = (s: BankState, serviceId: string, accountId: string, amount?: number) => mut(s, (d) => {
-  const srv = d.services.find((x) => x.id === serviceId); assert(srv, 'Servicio no encontrado.');
-  const amt = amount ?? srv.amountDue; assert(srv.amountDue > 0 || amount, 'Este servicio no tiene deuda.');
+  const srv = d.services.find((x) => x.id === serviceId); assert(srv, 'servicio_no_encontrado');
+  const amt = amount ?? srv.amountDue; assert(srv.amountDue > 0 || amount, 'este_servicio_no_tiene');
   debit(d, accountId, amt, `Pago ${srv.type} - ${srv.company}`, 'payment', { category: srv.type === 'Impuestos' ? 'Impuestos' : 'Servicios' });
   srv.amountDue = round2(Math.max(0, srv.amountDue - amt));
   d.user.points += Math.floor(amt / 2);
 });
 export const addService = (s: BankState, p: { company: string; type: Service['type']; customerNumber: string }) => mut(s, (d) => {
-  assert(p.company.trim().length >= 2, 'Indicá la empresa.');
-  assert(/^[A-Za-z0-9-]{4,20}$/.test(p.customerNumber.trim()), 'Número de cliente inválido (4-20 caracteres).');
-  assert(!d.services.some((x) => x.company === p.company.trim() && x.customerNumber === p.customerNumber.trim()), 'Ese servicio ya está adherido.');
+  assert(p.company.trim().length >= 2, 'indica_empresa');
+  assert(/^[A-Za-z0-9-]{4,20}$/.test(p.customerNumber.trim()), 'numero_cliente_invalido_4');
+  assert(!d.services.some((x) => x.company === p.company.trim() && x.customerNumber === p.customerNumber.trim()), 'ese_servicio_ya_esta');
   const due = new Date(); due.setDate(due.getDate() + 10 + Math.floor(Math.random() * 15));
   d.services.push({ id: uid('srv'), company: p.company.trim(), type: p.type, customerNumber: p.customerNumber.trim(), amountDue: round2(20 + Math.random() * 80), dueDate: due.toISOString().slice(0, 10), autoDebit: false, reminder: true });
 });
 export const removeService = (s: BankState, id: string) => mut(s, (d) => { d.services = d.services.filter((x) => x.id !== id); });
 export const setAutoDebit = (s: BankState, id: string, on: boolean, accountId?: string) => mut(s, (d) => {
-  const srv = d.services.find((x) => x.id === id); assert(srv, 'Servicio no encontrado.');
-  if (on) { assert(accountId, 'Elegí la cuenta a debitar.'); getAccount(d, accountId); }
+  const srv = d.services.find((x) => x.id === id); assert(srv, 'servicio_no_encontrado');
+  if (on) { assert(accountId, 'elegi_cuenta_debitar'); getAccount(d, accountId); }
   srv.autoDebit = on; srv.autoDebitAccountId = on ? accountId : undefined;
 });
 export const setReminder = (s: BankState, id: string, on: boolean) => mut(s, (d) => {
-  const srv = d.services.find((x) => x.id === id); assert(srv, 'Servicio no encontrado.'); srv.reminder = on;
+  const srv = d.services.find((x) => x.id === id); assert(srv, 'servicio_no_encontrado'); srv.reminder = on;
 });
 /** Al abrir la app: paga débitos automáticos vencidos y genera recordatorios. */
 export function processBills(s: BankState): BankState {
@@ -464,27 +472,27 @@ export function processBills(s: BankState): BankState {
 }
 export const TOPUP_OPERATORS = ['Claro', 'Movistar', 'Tigo', 'Digitel'];
 export const mobileTopUp = (s: BankState, accountId: string, operator: string, phone: string, amount: number) => mut(s, (d) => {
-  assert(TOPUP_OPERATORS.includes(operator), 'Elegí una operadora.');
-  assert(/^\+?\d{8,13}$/.test(phone.replace(/\s/g, '')), 'Número de celular inválido.');
-  assert([5, 10, 20, 30, 50].includes(amount), 'Montos disponibles: 5, 10, 20, 30 o 50.');
+  assert(TOPUP_OPERATORS.includes(operator), 'elegi_operadora');
+  assert(/^\+?\d{8,13}$/.test(phone.replace(/\s/g, '')), 'numero_celular_invalido');
+  assert([5, 10, 20, 30, 50].includes(amount), 'montos_disponibles_5_10');
   debit(d, accountId, amount, `Recarga celular ${operator} ${phone}`, 'payment', { category: 'Servicios' });
 });
 export const transportTopUp = (s: BankState, accountId: string, cardNumber: string, amount: number) => mut(s, (d) => {
-  assert(/^\d{10,16}$/.test(cardNumber.replace(/\s/g, '')), 'Número de tarjeta de transporte inválido (10-16 dígitos).');
-  assert(amount >= 2 && amount <= 100, 'El monto debe estar entre 2 y 100.');
+  assert(/^\d{10,16}$/.test(cardNumber.replace(/\s/g, '')), 'numero_tarjeta_transporte_invalido');
+  assert(amount >= 2 && amount <= 100, 'monto_debe_estar_entre');
   debit(d, accountId, amount, `Recarga transporte ****${cardNumber.slice(-4)}`, 'payment', { category: 'Transporte' });
 });
 export const TAXES = ['Impuesto predial', 'Impuesto vehicular', 'Impuesto a la renta', 'Tasa municipal'] as const;
 export const payTax = (s: BankState, accountId: string, tax: string, taxId: string, amount: number) => mut(s, (d) => {
-  assert((TAXES as readonly string[]).includes(tax), 'Elegí el impuesto.');
-  assert(/^[A-Za-z0-9-]{5,20}$/.test(taxId.trim()), 'Identificador tributario inválido.');
+  assert((TAXES as readonly string[]).includes(tax), 'elegi_impuesto');
+  assert(/^[A-Za-z0-9-]{5,20}$/.test(taxId.trim()), 'identificador_tributario_invalido');
   debit(d, accountId, amount, `${tax} · ${taxId.trim()}`, 'payment', { category: 'Impuestos' });
 });
 
 /* -------------------------------- Tarjetas ------------------------------- */
 export const setCardStatus = (s: BankState, id: string, status: 'activa' | 'bloqueada') => mut(s, (d) => {
-  const c = getCard(d, id); assert(c.status !== 'cancelada', 'La tarjeta está cancelada.');
-  if (status === 'activa') assert(!d.user.emergencyLocked, 'Desactivá primero el bloqueo de emergencia.');
+  const c = getCard(d, id); assert(c.status !== 'cancelada', 'tarjeta_esta_cancelada');
+  if (status === 'activa') assert(!d.user.emergencyLocked, 'desactiva_primero_bloqueo_emergencia');
   c.status = status;
   notify(d, 'seguridad', status === 'bloqueada' ? 'Tarjeta bloqueada' : 'Tarjeta desbloqueada', `${c.brand} ****${c.number.slice(-4)}`);
 });
@@ -499,7 +507,7 @@ export const isLuhnValid = (num: string) => {
 };
 const newExpiry = (years: number) => { const d = new Date(); return `${String(d.getMonth() + 1).padStart(2, '0')}/${String((d.getFullYear() + years) % 100).padStart(2, '0')}`; };
 export const reportCard = (s: BankState, id: string, reason: 'robo' | 'pérdida' | 'daño', reissue: boolean) => mut(s, (d) => {
-  const c = getCard(d, id); assert(c.status !== 'cancelada', 'La tarjeta ya está cancelada.');
+  const c = getCard(d, id); assert(c.status !== 'cancelada', 'tarjeta_ya_esta_cancelada');
   c.status = 'cancelada';
   if (reissue) {
     d.cards.push({ ...c, id: uid('card'), number: luhnNumber(c.brand === 'Visa' ? '4' : '5'), cvv: String(Math.floor(100 + Math.random() * 900)), expiry: newExpiry(4), status: 'activa' });
@@ -508,38 +516,38 @@ export const reportCard = (s: BankState, id: string, reason: 'robo' | 'pérdida'
 });
 export const createVirtualCard = (s: BankState, accountId: string, limit: number, oneTime: boolean) => mut(s, (d) => {
   getAccount(d, accountId); positive(limit);
-  assert(d.cards.filter((c) => c.virtual && c.status !== 'cancelada').length < 5, 'Máximo 5 tarjetas virtuales activas.');
+  assert(d.cards.filter((c) => c.virtual && c.status !== 'cancelada').length < 5, 'maximo_5_tarjetas_virtuales');
   d.cards.push({ id: uid('card'), kind: 'debito', virtual: true, oneTime, brand: 'Visa', number: luhnNumber('4'), cvv: String(Math.floor(100 + Math.random() * 900)), expiry: newExpiry(oneTime ? 1 : 3), holder: d.user.name.toUpperCase(), accountId, status: 'activa', pin: '0000', limit, used: 0, onlineEnabled: true, abroadEnabled: false, dueDate: new Date().toISOString() });
 });
 export const changeCardPin = (s: BankState, id: string, current: string, pin: string, confirm: string) => mut(s, (d) => {
-  const c = getCard(d, id); assert(!c.virtual, 'Las tarjetas virtuales no usan PIN.');
-  assert(current === c.pin, 'PIN actual incorrecto.');
-  assert(/^\d{4}$/.test(pin), 'El PIN debe tener 4 dígitos.'); assert(pin === confirm, 'Los PIN no coinciden.');
-  assert(!/^(\d)\1{3}$/.test(pin) && !['1234', '4321'].includes(pin), 'Elegí un PIN menos predecible.');
+  const c = getCard(d, id); assert(!c.virtual, 'tarjetas_virtuales_no_usan');
+  assert(current === c.pin, 'pin_actual_incorrecto');
+  assert(/^\d{4}$/.test(pin), 'pin_debe_tener_4'); assert(pin === confirm, 'pin_no_coinciden');
+  assert(!/^(\d)\1{3}$/.test(pin) && !['1234', '4321'].includes(pin), 'elegi_pin_menos_predecible');
   c.pin = pin;
 });
 export const setCardLimit = (s: BankState, id: string, limit: number) => mut(s, (d) => {
   const c = getCard(d, id); positive(limit);
-  if (c.kind === 'credito') assert(limit <= c.limit, 'Para crédito solo podés reducir el límite. Para aumentarlo pedí un aumento.');
-  else assert(limit <= 20000, 'Límite máximo de gasto: 20,000 USD.');
-  assert(limit >= c.used || c.kind === 'debito', 'El límite no puede ser menor al consumo actual.');
+  if (c.kind === 'credito') assert(limit <= c.limit, 'credito_solo_podes_reducir');
+  else assert(limit <= 20000, 'limite_maximo_gasto_20');
+  assert(limit >= c.used || c.kind === 'debito', 'limite_no_puede_ser');
   c.limit = limit;
 });
 export const setCardFlag = (s: BankState, id: string, flag: 'onlineEnabled' | 'abroadEnabled', on: boolean) => mut(s, (d) => {
-  const c = getCard(d, id); assert(c.status === 'activa', 'La tarjeta no está activa.'); c[flag] = on;
+  const c = getCard(d, id); assert(c.status === 'activa', 'tarjeta_no_esta_activa'); c[flag] = on;
 });
 export const setTravelNotice = (s: BankState, id: string, country: string, from: string, to: string) => mut(s, (d) => {
   const c = getCard(d, id);
-  assert(country.trim().length >= 3, 'Indicá el país de destino.');
-  assert(/^\d{4}-\d{2}-\d{2}$/.test(from) && /^\d{4}-\d{2}-\d{2}$/.test(to) && from <= to, 'Fechas inválidas (AAAA-MM-DD).');
+  assert(country.trim().length >= 3, 'indica_pais_destino');
+  assert(/^\d{4}-\d{2}-\d{2}$/.test(from) && /^\d{4}-\d{2}-\d{2}$/.test(to) && from <= to, 'fechas_invalidas_aaaa_mm');
   c.travelNotice = { country: country.trim(), from, to }; c.abroadEnabled = true;
   notify(d, 'seguridad', 'Aviso de viaje registrado', `${country} del ${from} al ${to}.`);
 });
 export const cardPurchase = (s: BankState, id: string, merchant: string, amount: number, online = false) => mut(s, (d) => {
   const c = getCard(d, id); positive(amount);
-  assert(c.status === 'activa', 'Tarjeta no activa.');
-  if (online) assert(c.onlineEnabled, 'Compras online deshabilitadas.');
-  assert(c.used + amount <= c.limit, 'Supera el límite de la tarjeta.');
+  assert(c.status === 'activa', 'tarjeta_no_activa');
+  if (online) assert(c.onlineEnabled, 'compras_online_deshabilitadas');
+  assert(c.used + amount <= c.limit, 'supera_limite_tarjeta');
   if (c.kind === 'credito') { c.used = round2(c.used + amount); }
   else { debit(d, c.accountId, amount, merchant, 'card'); c.used = round2(c.used + amount); }
   if (c.oneTime) c.status = 'cancelada';
@@ -547,9 +555,9 @@ export const cardPurchase = (s: BankState, id: string, merchant: string, amount:
 });
 export const creditCardStatement = (c: Card) => ({ balance: c.used, minimum: round2(Math.max(25, c.used * 0.05)), available: round2(c.limit - c.used), dueDate: c.dueDate });
 export const payCreditCard = (s: BankState, cardId: string, accountId: string, amount: number) => mut(s, (d) => {
-  const c = getCard(d, cardId); assert(c.kind === 'credito', 'Solo tarjetas de crédito.');
-  assert(c.used > 0, 'No hay saldo para pagar.');
-  assert(amount <= c.used + 0.001, `El máximo a pagar es ${c.used.toFixed(2)}.`);
+  const c = getCard(d, cardId); assert(c.kind === 'credito', 'solo_tarjetas_credito');
+  assert(c.used > 0, 'no_hay_saldo_pagar');
+  assert(amount <= c.used + 0.001, 'maximo_pagar', { max: c.used.toFixed(2) });
   debit(d, accountId, amount, `Pago tarjeta ${c.brand} ****${c.number.slice(-4)}`, 'payment', { category: 'Transferencias' });
   c.used = round2(c.used - amount);
 });
@@ -560,8 +568,8 @@ export function installmentPlan(amount: number, months: number, tna: number) {
   return { quota: round2(quota), total: round2(quota * months), interest: round2(quota * months - amount) };
 }
 export const requestLimitIncrease = (s: BankState, id: string, amount: number) => mut(s, (d) => {
-  const c = getCard(d, id); assert(c.kind === 'credito', 'Solo tarjetas de crédito.');
-  assert(amount > c.limit, 'El nuevo límite debe ser mayor al actual.');
+  const c = getCard(d, id); assert(c.kind === 'credito', 'solo_tarjetas_credito');
+  assert(amount > c.limit, 'nuevo_limite_debe_ser');
   const income = d.transactions.filter((t) => t.category === 'Ingresos' && t.amount > 0).slice(0, 3).reduce((a, t) => a + t.amount, 0) / 3;
   const approved = amount <= income * 3;
   c.limitRequest = { amount, status: approved ? 'aprobada' : 'rechazada' };
@@ -571,29 +579,29 @@ export const requestLimitIncrease = (s: BankState, id: string, amount: number) =
 
 /* -------------------------- Ahorro y presupuesto ------------------------- */
 export const createGoal = (s: BankState, name: string, target: number, deadline: string, emoji = '🎯') => mut(s, (d) => {
-  assert(name.trim().length >= 3, 'El nombre debe tener al menos 3 caracteres.'); positive(target);
-  assert(/^\d{4}-\d{2}-\d{2}$/.test(deadline) && deadline > todayKey(), 'La fecha límite debe ser futura (AAAA-MM-DD).');
+  assert(name.trim().length >= 3, 'nombre_debe_tener_minimo'); positive(target);
+  assert(/^\d{4}-\d{2}-\d{2}$/.test(deadline) && deadline > todayKey(), 'fecha_limite_debe_ser');
   d.goals.push({ id: uid('goal'), name: name.trim(), target, saved: 0, deadline, emoji });
 });
 export const contributeGoal = (s: BankState, goalId: string, accountId: string, amount: number) => mut(s, (d) => {
-  const g = d.goals.find((x) => x.id === goalId); assert(g, 'Meta no encontrada.');
+  const g = d.goals.find((x) => x.id === goalId); assert(g, 'meta_no_encontrada');
   debit(d, accountId, amount, `Aporte a meta "${g.name}"`, 'savings', { category: 'Ahorro' });
   g.saved = round2(g.saved + amount);
   if (g.saved >= g.target) notify(d, 'sistema', '¡Meta cumplida! 🎉', `Alcanzaste tu meta "${g.name}".`);
 });
 export const withdrawGoal = (s: BankState, goalId: string, accountId: string, amount: number) => mut(s, (d) => {
-  const g = d.goals.find((x) => x.id === goalId); assert(g, 'Meta no encontrada.');
-  assert(amount <= g.saved, `Solo tenés ${g.saved.toFixed(2)} ahorrados en esta meta.`);
+  const g = d.goals.find((x) => x.id === goalId); assert(g, 'meta_no_encontrada');
+  assert(amount <= g.saved, 'solo_tenes_ahorrados_esta', { saved: g.saved.toFixed(2) });
   g.saved = round2(g.saved - amount);
   credit(d, accountId, amount, `Retiro de meta "${g.name}"`, 'savings', { category: 'Ahorro' });
 });
 export const deleteGoal = (s: BankState, goalId: string, accountId: string) => {
-  const g = s.goals.find((x) => x.id === goalId); assert(g, 'Meta no encontrada.');
+  const g = s.goals.find((x) => x.id === goalId); assert(g, 'meta_no_encontrada');
   const st = g.saved > 0 ? withdrawGoal(s, goalId, accountId, g.saved) : s;
   return mut(st, (d) => { d.goals = d.goals.filter((x) => x.id !== goalId); if (d.settings.roundUpGoalId === goalId) d.settings.roundUp = false; });
 };
 export const setRoundUp = (s: BankState, on: boolean, goalId?: string) => mut(s, (d) => {
-  if (on) assert(goalId && d.goals.some((g) => g.id === goalId), 'Elegí la meta que recibirá los redondeos.');
+  if (on) assert(goalId && d.goals.some((g) => g.id === goalId), 'elegi_meta_recibira_redondeos');
   d.settings.roundUp = on; d.settings.roundUpGoalId = on ? goalId : undefined;
 });
 export const setBudget = (s: BankState, category: Category, limit: number) => mut(s, (d) => {
@@ -614,7 +622,7 @@ export function fixedDepositReturn(amount: number, tna: number, days: number) {
 }
 export const FD_RATES: Record<number, number> = { 30: 4.5, 60: 4.8, 90: 5.2, 180: 5.6, 365: 6.1 };
 export const createFixedDeposit = (s: BankState, accountId: string, amount: number, days: number, autoRenew: boolean) => mut(s, (d) => {
-  assert(FD_RATES[days], 'Plazo no disponible.'); assert(amount >= 100, 'El monto mínimo es 100.');
+  assert(FD_RATES[days], 'plazo_no_disponible'); assert(amount >= 100, 'monto_minimo_100');
   debit(d, accountId, amount, `Constitución plazo fijo ${days} días`, 'investment', { category: 'Inversiones' });
   d.fixedDeposits.push({ id: uid('fd'), accountId, amount, rate: FD_RATES[days], days, start: new Date().toISOString(), autoRenew, status: 'activo' });
 });
@@ -645,17 +653,17 @@ export const LOAN_RATES: Record<Loan['kind'], number> = { personal: 14, auto: 11
 export const requestLoan = (s: BankState, kind: Loan['kind'], principal: number, months: number, accountId: string) => mut(s, (d) => {
   positive(principal);
   const max = kind === 'hipotecario' ? 300000 : kind === 'auto' ? 60000 : 30000;
-  assert(principal >= 500 && principal <= max, `Monto entre 500 y ${max}.`);
-  assert(months >= 6 && months <= (kind === 'hipotecario' ? 360 : 72), 'Plazo fuera de rango.');
+  assert(principal >= 500 && principal <= max, 'monto_entre_500', { max: max });
+  assert(months >= 6 && months <= (kind === 'hipotecario' ? 360 : 72), 'plazo_fuera_rango');
   const sim = loanSimulation(principal, LOAN_RATES[kind], months);
   const income = d.transactions.filter((t) => t.category === 'Ingresos' && t.amount > 0).slice(0, 3).reduce((a, t) => a + t.amount, 0) / 3;
   const currentDebt = d.loans.filter((l) => l.status === 'activo').reduce((a, l) => a + l.installment, 0);
-  assert(sim.quota + currentDebt <= income * 0.4, `La cuota supera el 40% de tus ingresos (máx. cuota: ${round2(income * 0.4 - currentDebt)}).`);
+  assert(sim.quota + currentDebt <= income * 0.4, 'cuota_supera_40_ingresos', { maxQuota: round2(income * 0.4 - currentDebt) });
   d.loans.push({ id: uid('loan'), kind, principal, rate: LOAN_RATES[kind], months, installment: sim.quota, paidInstallments: 0, outstanding: principal, accountId, startDate: new Date().toISOString(), status: 'activo' });
   credit(d, accountId, principal, `Acreditación préstamo ${kind}`, 'loan', { category: 'Préstamos' });
 });
 export const payLoanInstallment = (s: BankState, loanId: string, accountId: string) => mut(s, (d) => {
-  const l = d.loans.find((x) => x.id === loanId); assert(l && l.status === 'activo', 'Préstamo no activo.');
+  const l = d.loans.find((x) => x.id === loanId); assert(l && l.status === 'activo', 'prestamo_no_activo');
   const interest = round2(l.outstanding * (l.rate / 100 / 12));
   const isLast = l.paidInstallments + 1 >= l.months;
   const amount = isLast ? round2(l.outstanding + interest) : l.installment;
@@ -665,7 +673,7 @@ export const payLoanInstallment = (s: BankState, loanId: string, accountId: stri
 });
 export const PREPAYMENT_FEE = 0.02;
 export const prepayLoan = (s: BankState, loanId: string, accountId: string) => mut(s, (d) => {
-  const l = d.loans.find((x) => x.id === loanId); assert(l && l.status === 'activo', 'Préstamo no activo.');
+  const l = d.loans.find((x) => x.id === loanId); assert(l && l.status === 'activo', 'prestamo_no_activo');
   const fee = round2(l.outstanding * PREPAYMENT_FEE);
   debit(d, accountId, l.outstanding, `Precancelación préstamo ${l.kind}`, 'loan', { category: 'Préstamos' });
   debit(d, accountId, fee, 'Comisión por precancelación (2%)', 'fee', { category: 'Comisiones' });
@@ -681,10 +689,10 @@ export const tickMarket = (s: BankState) => mut(s, (d) => {
   });
 });
 export const buyAsset = (s: BankState, accountId: string, symbol: string, amountUsd: number) => mut(s, (d) => {
-  const a = d.market.find((x) => x.symbol === symbol); assert(a, 'Instrumento no encontrado.');
-  const acc = getAccount(d, accountId); assert(acc.currency === 'USD', 'Las inversiones se operan desde una cuenta en USD.');
-  assert(amountUsd >= 10, 'Monto mínimo de inversión: 10 USD.');
-  if (a.risk >= 4) assert(d.settings.investorProfile && d.settings.investorProfile !== 'conservador', 'Este instrumento requiere perfil moderado o agresivo. Completá el test de perfil.');
+  const a = d.market.find((x) => x.symbol === symbol); assert(a, 'instrumento_no_encontrado');
+  const acc = getAccount(d, accountId); assert(acc.currency === 'USD', 'inversiones_operan_desde_cuenta');
+  assert(amountUsd >= 10, 'monto_minimo_inversion_10');
+  if (a.risk >= 4) assert(d.settings.investorProfile && d.settings.investorProfile !== 'conservador', 'este_instrumento_requiere_perfil');
   const commission = round2(amountUsd * 0.005);
   const qty = (amountUsd - commission) / a.price;
   debit(d, accountId, amountUsd, `Compra ${a.symbol} (${qty.toFixed(6)} u.)`, 'investment', { category: 'Inversiones' });
@@ -694,9 +702,9 @@ export const buyAsset = (s: BankState, accountId: string, symbol: string, amount
 });
 export const sellAsset = (s: BankState, accountId: string, symbol: string, qty: number) => mut(s, (d) => {
   const a = d.market.find((x) => x.symbol === symbol); const h = d.holdings.find((x) => x.symbol === symbol);
-  assert(a && h, 'No tenés este instrumento.'); positive(qty);
-  assert(qty <= h.qty + 1e-9, `Tenés ${h.qty.toFixed(6)} unidades.`);
-  const acc = getAccount(d, accountId); assert(acc.currency === 'USD', 'Acreditamos ventas en cuentas USD.');
+  assert(a && h, 'no_tenes_este_instrumento'); positive(qty);
+  assert(qty <= h.qty + 1e-9, 'tenes_unidades', { qty: h.qty.toFixed(6) });
+  const acc = getAccount(d, accountId); assert(acc.currency === 'USD', 'acreditamos_ventas_cuentas_usd');
   const gross = qty * a.price; const net = round2(gross * 0.995);
   credit(d, accountId, net, `Venta ${a.symbol} (${qty.toFixed(6)} u.)`, 'investment', { category: 'Inversiones' });
   h.qty -= qty; if (h.qty < 1e-9) d.holdings = d.holdings.filter((x) => x.symbol !== symbol);
@@ -715,12 +723,12 @@ export function investorProfile(answers: number[]): 'conservador' | 'moderado' |
   return score <= 5 ? 'conservador' : score <= 9 ? 'moderado' : 'agresivo';
 }
 export const setInvestorProfile = (s: BankState, answers: number[]) => mut(s, (d) => {
-  assert(answers.length === 5 && answers.every((a) => a >= 0), 'Respondé todas las preguntas.');
+  assert(answers.length === 5 && answers.every((a) => a >= 0), 'responde_todas_preguntas');
   d.settings.investorProfile = investorProfile(answers);
 });
 export const exchangeCurrency = (s: BankState, fromId: string, toId: string, amount: number) => {
   const from = getAccount(s, fromId); const to = getAccount(s, toId);
-  assert(from.currency !== to.currency, 'Elegí cuentas de distinta moneda.');
+  assert(from.currency !== to.currency, 'elegi_cuentas_distinta_moneda');
   return transferOwn(s, fromId, toId, amount, `Cambio ${from.currency}→${to.currency}`);
 };
 
@@ -732,23 +740,23 @@ export const INSURANCE_BASE: Record<Insurance['type'], { rate: number; min: numb
 };
 export function quoteInsurance(type: Insurance['type'], coverage: number, age = 33) {
   const b = INSURANCE_BASE[type];
-  assert(coverage >= b.min && coverage <= b.max, `Cobertura entre ${b.min} y ${b.max}.`);
+  assert(coverage >= b.min && coverage <= b.max, 'cobertura_entre', { min: b.min, max: b.max });
   const ageFactor = type === 'Vida' || type === 'Salud' ? 1 + Math.max(0, age - 30) * 0.03 : 1;
   return round2(coverage * b.rate * ageFactor);
 }
 export const contractInsurance = (s: BankState, type: Insurance['type'], coverage: number, accountId: string) => mut(s, (d) => {
-  assert(!d.insurances.some((i) => i.type === type && i.status === 'vigente'), `Ya tenés un seguro de ${type} vigente.`);
+  assert(!d.insurances.some((i) => i.type === type && i.status === 'vigente'), 'ya_tenes_seguro_vigente', { type: type });
   const age = Math.floor((Date.now() - new Date(d.user.birthDate).getTime()) / 3.15576e10);
   const premium = quoteInsurance(type, coverage, age);
   debit(d, accountId, premium, `Primer pago seguro ${type}`, 'payment', { category: 'Servicios' });
   d.insurances.push({ id: uid('ins'), type, premium, coverage, start: new Date().toISOString(), status: 'vigente' });
 });
 export const cancelInsurance = (s: BankState, id: string) => mut(s, (d) => {
-  const i = d.insurances.find((x) => x.id === id); assert(i && i.status === 'vigente', 'Seguro no vigente.'); i.status = 'cancelado';
+  const i = d.insurances.find((x) => x.id === id); assert(i && i.status === 'vigente', 'seguro_no_vigente'); i.status = 'cancelado';
 });
 export const fileClaim = (s: BankState, insuranceId: string, description: string) => mut(s, (d) => {
-  const i = d.insurances.find((x) => x.id === insuranceId); assert(i && i.status === 'vigente', 'Elegí un seguro vigente.');
-  assert(description.trim().length >= 15, 'Describí el siniestro (mínimo 15 caracteres).');
+  const i = d.insurances.find((x) => x.id === insuranceId); assert(i && i.status === 'vigente', 'elegi_seguro_vigente');
+  assert(description.trim().length >= 15, 'describi_siniestro_minimo_15');
   d.claims.unshift({ id: uid('clm'), insuranceId, description: description.trim(), date: new Date().toISOString(), status: 'recibido' });
   notify(d, 'sistema', 'Siniestro recibido', `Seguro de ${i.type}. Un asesor te contactará en 48 h.`);
 });
@@ -760,33 +768,33 @@ export const markNotification = (s: BankState, id: string | 'all') => mut(s, (d)
 export const deleteNotification = (s: BankState, id: string) => mut(s, (d) => { d.notifications = d.notifications.filter((n) => n.id !== id); });
 export const readMessage = (s: BankState, id: string) => mut(s, (d) => { const m = d.inbox.find((x) => x.id === id); if (m) m.read = true; });
 export const acceptOffer = (s: BankState, id: string) => mut(s, (d) => {
-  const o = d.offers.find((x) => x.id === id); assert(o && !o.accepted, 'Oferta no disponible.'); o.accepted = true;
+  const o = d.offers.find((x) => x.id === id); assert(o && !o.accepted, 'oferta_no_disponible'); o.accepted = true;
 });
 export const updateProfile = (s: BankState, p: { name: string; email: string; phone: string; address: string }) => mut(s, (d) => {
-  assert(p.name.trim().length >= 3, 'Nombre inválido.');
-  assert(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email.trim()), 'Email inválido.');
-  assert(/^\+?[\d\s-]{8,18}$/.test(p.phone.trim()), 'Teléfono inválido.');
+  assert(p.name.trim().length >= 3, 'nombre_invalido');
+  assert(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email.trim()), 'email_invalido');
+  assert(/^\+?[\d\s-]{8,18}$/.test(p.phone.trim()), 'telefono_invalido');
   Object.assign(d.user, { name: p.name.trim(), email: p.email.trim(), phone: p.phone.trim(), address: p.address.trim() });
 });
 export const redeemReward = (s: BankState, rewardId: string, accountId: string) => mut(s, (d) => {
-  const r = d.rewards.find((x) => x.id === rewardId); assert(r, 'Recompensa no encontrada.');
-  assert(d.user.points >= r.points, `Te faltan ${r.points - d.user.points} puntos.`);
+  const r = d.rewards.find((x) => x.id === rewardId); assert(r, 'recompensa_no_encontrada');
+  assert(d.user.points >= r.points, 'te_faltan_puntos', { missing: r.points - d.user.points });
   d.user.points -= r.points;
   if (r.id === 'rw-1') credit(d, accountId, 10, 'Canje de puntos', 'deposit', { category: 'Ingresos' });
   notify(d, 'sistema', 'Canje realizado', `${r.name} (−${r.points} pts).`);
 });
 export const addReferral = (s: BankState, name: string) => mut(s, (d) => {
-  assert(name.trim().length >= 3, 'Indicá el nombre de tu amigo/a.');
-  assert(!d.user.referrals.includes(name.trim()), 'Ya lo invitaste.');
+  assert(name.trim().length >= 3, 'indica_nombre_amigo');
+  assert(!d.user.referrals.includes(name.trim()), 'ya_lo_invitaste');
   d.user.referrals.push(name.trim()); d.user.points += 500;
 });
 export const createTicket = (s: BankState, subject: string, category: string, description: string) => mut(s, (d) => {
-  assert(subject.trim().length >= 5, 'El asunto debe tener al menos 5 caracteres.');
-  assert(description.trim().length >= 20, 'Describí el problema (mínimo 20 caracteres).');
+  assert(subject.trim().length >= 5, 'asunto_debe_tener_minimo');
+  assert(description.trim().length >= 20, 'describi_problema_minimo_20');
   d.tickets.unshift({ id: `TK-${Math.floor(10000 + Math.random() * 89999)}`, subject: subject.trim(), category, description: description.trim(), date: new Date().toISOString(), status: 'abierto' });
 });
 export const addEmergencyContact = (s: BankState, name: string, phone: string, relation: string) => mut(s, (d) => {
-  assert(name.trim().length >= 3, 'Nombre inválido.'); assert(/^\+?[\d\s-]{8,18}$/.test(phone.trim()), 'Teléfono inválido.');
+  assert(name.trim().length >= 3, 'nombre_invalido'); assert(/^\+?[\d\s-]{8,18}$/.test(phone.trim()), 'telefono_invalido');
   d.emergencyContacts.push({ id: uid('ct'), name: name.trim(), phone: phone.trim(), relation: relation.trim() || 'Familiar' });
 });
 export const removeEmergencyContact = (s: BankState, id: string) => mut(s, (d) => { d.emergencyContacts = d.emergencyContacts.filter((c) => c.id !== id); });

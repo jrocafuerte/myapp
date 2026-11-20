@@ -35,9 +35,11 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/store/__tests__/*.test.ts src/design-system/__tests__/*.test.ts src/features/mfe/__tests__/*.test.ts shared/pagos-mfe/__tests__/*.test.ts",
+    "test": "tsx --test src/store/__tests__/*.test.ts src/design-system/__tests__/*.test.ts src/features/mfe/__tests__/*.test.ts shared/pagos-mfe/__tests__/*.test.ts src/remote-config/__tests__/*.test.ts",
     "mfe:dev": "npm --prefix mfe/pagos-servicios run dev",
-    "mfe:build": "npm --prefix mfe/pagos-servicios run build"
+    "mfe:build": "npm --prefix mfe/pagos-servicios run build",
+    "config:validate": "tsx scripts/remote-config.ts validate",
+    "config:catalog": "tsx scripts/remote-config.ts catalog"
   },
   "private": true
 }

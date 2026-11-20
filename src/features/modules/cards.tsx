@@ -7,6 +7,7 @@ import {
   AccountPicker, Banner, Button, Card, Chips, ConfirmButton, EmptyState, Inline, Input, KeyValue, Progress, Screen, Surface, Text, ToggleRow, useAction,
 } from '../../ui/kit';
 import { date, groupCard, isoDay, maskCard, money, parseAmount } from '../../utils/format';
+import { useMessage } from '../../remote-config/RemoteConfigProvider';
 import type { Feature } from '../types';
 
 export function CardVisual({ card, reveal, onPress }: { card: BankCard; reveal?: boolean; onPress?: () => void }) {
@@ -93,6 +94,7 @@ function ReportCard() {
 function RevealCard({ cardId }: { cardId?: string }) {
   const { state } = useBank();
   const { card, picker } = useSelected(cardId);
+  const message = useMessage();
   const [code, setCode] = useState(''); const [reveal, setReveal] = useState(false); const [err, setErr] = useState<string | null>(null);
   if (!card) return <EmptyState text="Sin tarjetas" />;
   return (
@@ -103,7 +105,7 @@ function RevealCard({ cardId }: { cardId?: string }) {
         <>
           <Input label="Token digital para ver los datos" value={code} onChangeText={setCode} keyboardType="number-pad" maxLength={6} />
           <Banner kind="error" text={err} />
-          <Button title="Ver número y CVV" icon="eye-outline" onPress={() => { if (code === L.otpCode(state.user.username)) { setReveal(true); setErr(null); setTimeout(() => setReveal(false), 30000); } else setErr('Token incorrecto.'); }} />
+          <Button title="Ver número y CVV" icon="eye-outline" onPress={() => { if (code === L.otpCode(state.user.username)) { setReveal(true); setErr(null); setTimeout(() => setReveal(false), 30000); } else setErr(message('token_incorrecto')); }} />
         </>
       ) : <Button title="Ocultar" variant="secondary" onPress={() => setReveal(false)} />}
     </Card>

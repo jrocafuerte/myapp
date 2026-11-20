@@ -10,6 +10,7 @@ import {
 } from '../../ui/kit';
 import { date, isoDay, money, parseAmount } from '../../utils/format';
 import { PagosServiciosMFE } from '../mfe/PagosServiciosMFE';
+import { useMessage } from '../../remote-config/RemoteConfigProvider';
 import type { Feature } from '../types';
 
 const usePrimary = () => { const { state } = useBank(); return state.accounts.find((a) => a.isPrimary && !a.closed)?.id; };
@@ -24,9 +25,10 @@ function BeneficiaryPicker({ value, onChange, favoritesOnly }: { value?: string;
 function useTwoFactor(amount: number) {
   const { state } = useBank();
   const [code, setCode] = useState('');
+  const message = useMessage();
   const needed = state.settings.twoFactor && amount >= 1000;
   const field = needed ? <Input label="Token digital (requerido para montos ≥ 1,000)" value={code} onChangeText={setCode} keyboardType="number-pad" maxLength={6} hint="Lo encontrás en Seguridad → Token digital" /> : null;
-  const check = () => (needed && code !== L.otpCode(state.user.username) ? 'Token digital incorrecto o vencido.' : null);
+  const check = () => (needed && code !== L.otpCode(state.user.username) ? message('token_digital_incorrecto_vencido') : null);
   return { field, check, reset: () => setCode('') };
 }
 

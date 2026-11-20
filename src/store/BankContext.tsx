@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, useColorScheme } from 'react-native';
+import { messageText, useRemoteConfig } from '../remote-config/RemoteConfigProvider';
 import { BankError, matureDeposits, processBills, runScheduled, tickMarket } from './logic';
 import { createSeed } from './seed';
 import type { BankState } from './types';
@@ -30,6 +31,9 @@ export function BankProvider({ children }: { children: React.ReactNode }) {
   const [authenticated, setAuthenticated] = useState(false);
   const lastActivity = useRef(Date.now());
   const scheme = useColorScheme();
+  const { config: remote } = useRemoteConfig();
+  const remoteRef = useRef(remote);
+  remoteRef.current = remote;
 
   // Carga inicial + procesos automáticos (programadas, débitos, vencimientos de plazo fijo)
   useEffect(() => {
@@ -81,9 +85,10 @@ export function BankProvider({ children }: { children: React.ReactNode }) {
       setState(next);
       return null;
     } catch (e) {
-      if (e instanceof BankError) return e.message;
+      // El texto puede venir de la configuración remota (por código de error).
+      if (e instanceof BankError) return messageText(remoteRef.current, e.code, e.params);
       console.error(e);
-      return 'Ocurrió un error inesperado.';
+      return messageText(remoteRef.current, 'error_inesperado');
     }
   }, [touch]);
 

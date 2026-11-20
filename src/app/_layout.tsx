@@ -3,13 +3,18 @@ import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DesignSystemProvider, Spinner, Stack as DSStack, useTheme } from '../design-system';
+import { useMaintenance, RemoteConfigProvider } from '../remote-config/RemoteConfigProvider';
+import { MaintenanceScreen } from '../remote-config/MaintenanceScreen';
 import { BankProvider, useBank } from '../store/BankContext';
 
 function Gate() {
   const { ready, authenticated } = useBank();
   const { colors, dark } = useTheme();
   const segments = useSegments();
+  const appMaintenance = useMaintenance();
   if (!ready) return <DSStack flex align="center" justify="center" background="bg"><Spinner /></DSStack>;
+  // Mantenimiento de toda la app: reemplaza todas las pantallas, incluido el acceso.
+  if (appMaintenance) return <><StatusBar style={dark ? 'light' : 'dark'} /><MaintenanceScreen entry={appMaintenance} canGoBack={false} /></>;
   const onLogin = segments[0] === 'login';
   return (
     <>
@@ -38,9 +43,11 @@ function ThemedApp() {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <BankProvider>
-        <ThemedApp />
-      </BankProvider>
+      <RemoteConfigProvider>
+        <BankProvider>
+          <ThemedApp />
+        </BankProvider>
+      </RemoteConfigProvider>
     </SafeAreaProvider>
   );
 }

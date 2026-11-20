@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "revision": "2026-11-20.1",
+  "messages": {
+    "saldo_insuficiente": "No tenés saldo suficiente en {alias}. Transferí desde otra cuenta e intentá de nuevo.",
+    "supera_limite_diario_usd": "Llegaste a tu límite diario de {limit} USD. Hoy podés transferir hasta {available} USD más."
+  },
+  "texts": {
+    "payments": "Pagar y transferir",
+    "payments.en": "Pay & transfer"
+  },
+  "features": {
+    "pay-services": { "title": "Pagar cuentas", "description": "Luz, agua, gas, internet y más" },
+    "one-time-card": { "hidden": true }
+  },
+  "modules": {
+    "seguros": { "title": "Seguros y asistencias" }
+  },
+  "maintenance": [
+    {
+      "scope": "module:inversiones",
+      "title": "Inversiones en mantenimiento",
+      "message": "Estamos actualizando la plataforma de inversiones. Tus posiciones están seguras.",
+      "from": "2026-11-23T02:00:00-05:00",
+      "until": "2026-11-23T06:00:00-05:00"
+    }
+  ]
+}
